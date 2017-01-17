@@ -8,6 +8,9 @@ public strictfp class RobotPlayer {
 	static RobotController rc;
 	static int GARDENER_DISTRESS_CHANNEL = 2;
 	static int GARDENER_PRODUCTION_CHANNEL = 1;
+	static int ARCHON_DISTRESS_CHANNEL = 3;
+	static int ARCHON_NUM_CHANNEL = 4;
+	static int ARCHON_PRODUCTION_CHANNEL = 5;
 	
 
 	/**
@@ -53,6 +56,8 @@ public strictfp class RobotPlayer {
 		int numberOfArchons = initialArchonLoc.length;
 		int archonNum = 0;
 		int deadGardeners = -2;
+		boolean pinged = false;
+		boolean dec = false;
 		for(int i = 0; i < numberOfArchons; i++) {
 			if(rc.getLocation().equals(initialArchonLoc[i])) {
 				archonNum = i;
@@ -62,13 +67,25 @@ public strictfp class RobotPlayer {
 		while (true) {
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
 			try {
-
+				if (rc.getHealth()<10 && !pinged){
+					rc.broadcast(ARCHON_DISTRESS_CHANNEL, rc.readBroadcast(ARCHON_DISTRESS_CHANNEL)+1);
+					rc.broadcast(ARCHON_NUM_CHANNEL, archonNum);
+					pinged = true;
+				}
+				if (numberOfArchons-rc.readBroadcast(ARCHON_DISTRESS_CHANNEL)<numberOfArchons){
+					numberOfArchons--;
+					if (archonNum>rc.readBroadcast(ARCHON_NUM_CHANNEL) && !dec){
+						archonNum--;
+						dec = true;
+					}
+					
+				}
 				// Generate a random direction
 				Direction dir = randomDirection();
 				int distressSignals = rc.readBroadcast(GARDENER_DISTRESS_CHANNEL);
 				if (rc.canHireGardener(dir) && checkGardeners(deadGardeners, distressSignals)) {
 					// figure out which archon will build gardener
-					if(deadGardeners < 0 || distressSignals % numberOfArchons == archonNum) {
+					if(deadGardeners < 0 || distressSignals % (numberOfArchons) == archonNum) {
 						rc.hireGardener(dir);
 						if(deadGardeners >= 0) {
 							rc.broadcast(GARDENER_PRODUCTION_CHANNEL, rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL)+1);
@@ -97,23 +114,20 @@ public strictfp class RobotPlayer {
 	static void runGardener() throws GameActionException {
 		System.out.println("I'm a gardener!");
 		boolean toProduce = false;
+		boolean pinged = false;
 		while (true){
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
 			try {
-				if(rc.getRoundNum()==500){
-					rc.broadcast(GARDENER_DISTRESS_CHANNEL, rc.readBroadcast(GARDENER_DISTRESS_CHANNEL)+1);
-				}
 				
 				// Generate a random direction
 				Direction dir = randomDirection();
 
-				if (rc.getHealth()<5){
+				if (rc.getHealth()<5 && !pinged){
 					rc.broadcast(GARDENER_DISTRESS_CHANNEL, rc.readBroadcast(GARDENER_DISTRESS_CHANNEL)+1);
+					pinged = true;
 				}
 				if (rc.readBroadcast(GARDENER_DISTRESS_CHANNEL) != rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL)) {
 					toProduce = false;
-					System.out.println("gd " + rc.readBroadcast(GARDENER_DISTRESS_CHANNEL));
-					System.out.println("gp " + rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL));
 				} else {
 					toProduce = true;
 				}
