@@ -25,12 +25,7 @@ public strictfp class RobotPlayer {
 		// This is the RobotController object. You use it to perform actions from this robot,
 		// and to get information on its current status.
 		RobotPlayer.rc = rc;
-		ourTeam = rc.getTeam();
-		if(ourTeam.equals(Team.A)) {
-			opponentTeam = Team.B;
-		} else {
-			opponentTeam = Team.A;
-		}
+
 
 		// Here, we've separated the controls into a different method for each RobotType.
 		// You can add the missing ones or rewrite this into your own control structure.
@@ -62,7 +57,6 @@ public strictfp class RobotPlayer {
 		MapLocation[] initialArchonLoc = rc.getInitialArchonLocations(rc.getTeam());
 		int numberOfArchons = initialArchonLoc.length;
 		int archonNum = 0;
-		int deadGardeners = -2;
 		boolean pinged = false;
 		int numDecs = 0;
 		for(int i = 0; i < numberOfArchons; i++) {
@@ -70,12 +64,12 @@ public strictfp class RobotPlayer {
 				archonNum = i;
 			}
 		}
+			rc.broadcast(GARDENER_PRODUCTION_CHANNEL, numberOfArchons*-2);
+			System.out.println(rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL));
 		// The code you want your robot to perform every round should be in this loop
 		while (true) {
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
 			try {
-				if (rc.getRoundNum()%500 == 0)
-				System.out.println(archonNum);
 				if (rc.getHealth()<10 && !pinged){
 					rc.broadcast(ARCHON_DISTRESS_CHANNEL, rc.readBroadcast(ARCHON_DISTRESS_CHANNEL)+1);
 					rc.broadcast(ARCHON_NUM_CHANNEL, archonNum);
@@ -92,16 +86,14 @@ public strictfp class RobotPlayer {
 				// Generate a random direction
 				Direction dir = randomDirection();
 				int distressSignals = rc.readBroadcast(GARDENER_DISTRESS_CHANNEL);
+				int deadGardeners = rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL);
 				if (rc.canHireGardener(dir) && checkGardeners(deadGardeners, distressSignals)) {
 					// figure out which archon will build gardener
-					if(deadGardeners < 0 || distressSignals % (numberOfArchons) == archonNum) {
+					if(Math.abs(deadGardeners) % (numberOfArchons) == archonNum) {
 						rc.hireGardener(dir);
-						if(deadGardeners >= 0) {
-							rc.broadcast(GARDENER_PRODUCTION_CHANNEL, rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL)+1);
-						}
-					}
-					deadGardeners++;
-					
+						rc.broadcast(GARDENER_PRODUCTION_CHANNEL, rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL)+1);
+						System.out.println(rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL));
+					}					
 				}
 
 				// Clock.yield() makes the robot wait until the next turn, then it will perform this loop again
@@ -189,7 +181,6 @@ public strictfp class RobotPlayer {
 			}
 		}
 	}
-	
 	static MapLocation chooseTarget(RobotInfo[] enemies) {
 		Map<RobotType, Integer> RobotTypePoints = new HashMap<RobotType, Integer>();
 		RobotTypePoints.put(RobotType.TANK, 0);
