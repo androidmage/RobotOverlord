@@ -11,6 +11,8 @@ public strictfp class RobotPlayer {
 	static int ARCHON_DISTRESS_CHANNEL = 3;
 	static int ARCHON_NUM_CHANNEL = 4;
 	static int ARCHON_PRODUCTION_CHANNEL = 5;
+	static Team ourTeam;
+	static Team opponentTeam;
 	
 
 	/**
@@ -23,7 +25,12 @@ public strictfp class RobotPlayer {
 		// This is the RobotController object. You use it to perform actions from this robot,
 		// and to get information on its current status.
 		RobotPlayer.rc = rc;
-
+		ourTeam = rc.getTeam();
+		if(ourTeam.equals(Team.A)) {
+			opponentTeam = Team.B;
+		} else {
+			opponentTeam = Team.A;
+		}
 
 		// Here, we've separated the controls into a different method for each RobotType.
 		// You can add the missing ones or rewrite this into your own control structure.
@@ -159,7 +166,20 @@ public strictfp class RobotPlayer {
 
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
 			try {
-
+				RobotInfo[] enemies = rc.senseNearbyRobots(RobotType.SOLDIER.sensorRadius, opponentTeam);
+				
+				if(enemies.length > 0){
+					MapLocation target = chooseTarget(enemies);
+					Direction targetDir = rc.getLocation().directionTo(target);
+					int shotType = chooseShotType(target);
+					if(shotType == 1) {
+						rc.fireSingleShot(targetDir);
+					} else if (shotType == 3) {
+						rc.fireTriadShot(targetDir);
+					} else {
+						rc.firePentadShot(targetDir);
+					}
+				}
 				// Clock.yield() makes the robot wait until the next turn, then it will perform this loop again
 				Clock.yield();
 
@@ -168,6 +188,48 @@ public strictfp class RobotPlayer {
 				e.printStackTrace();
 			}
 		}
+	}
+	
+	static MapLocation chooseTarget(RobotInfo[] enemies) {
+		Map<RobotType, Integer> RobotTypePoints = new HashMap<RobotType, Integer>();
+		RobotTypePoints.put(RobotType.TANK, 0);
+		RobotTypePoints.put(RobotType.LUMBERJACK, 1);
+		RobotTypePoints.put(RobotType.SOLDIER, 2);
+		RobotTypePoints.put(RobotType.GARDENER, 3);
+		RobotTypePoints.put(RobotType.SCOUT, 4);
+		RobotTypePoints.put(RobotType.ARCHON, 5);
+		float[] robotPoints = new float[enemies.length];
+		for(int i = 0; i < enemies.length; i++) {
+			//Adds 3 things together:
+			//1: gets the distance to the other robot, squares it
+			robotPoints[i] = enemies[i].location.distanceSquaredTo(rc.getLocation());
+			//2: gets the percent health (as a decimal) that the other robot is at and multiplies that decimal by 5
+			robotPoints[i] += (float)(enemies[i].getHealth()/enemies[i].getType().maxHealth)*5;
+			//3: gets the map value for the type of robot
+			robotPoints[i] += RobotTypePoints.get(enemies[i].getType());
+		}
+		int counter = 0;
+		for(int i = 1; i < robotPoints.length; i++){
+			if(robotPoints[counter] > robotPoints[i]){
+				counter = i;
+			}
+		}
+		
+		
+		return enemies[counter].location;
+	}
+	
+	static int chooseShotType(MapLocation target) {
+		int shots = 1;
+		int robotsNearTarget = rc.senseNearbyRobots(target, 5, opponentTeam).length;
+		if(robotsNearTarget >= 3) {
+			if(robotsNearTarget >= 6) {
+				shots = 5;
+			} else {
+				shots = 3;
+			}
+		}
+		return shots;
 	}
 
 	static void runLumberjack() throws GameActionException {
