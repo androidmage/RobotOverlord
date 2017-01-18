@@ -70,7 +70,6 @@ public strictfp class RobotPlayer {
 			}
 		}
 			rc.broadcast(GARDENER_PRODUCTION_CHANNEL, numberOfArchons*-2);
-			System.out.println(rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL));
 		// The code you want your robot to perform every round should be in this loop
 		while (true) {
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
@@ -133,8 +132,6 @@ public strictfp class RobotPlayer {
 				}
 				if (rc.readBroadcast(GARDENER_DISTRESS_CHANNEL) != rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL)) {
 					toProduce = false;
-					System.out.println("Distress " + rc.readBroadcast(GARDENER_DISTRESS_CHANNEL));
-					System.out.println("Production " + rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL));
 				} else {
 					toProduce = true;
 				}
@@ -166,10 +163,11 @@ public strictfp class RobotPlayer {
 				//sense enemy robots
 				RobotInfo[] enemies = rc.senseNearbyRobots(RobotType.SOLDIER.sensorRadius, opponentTeam);
 				// choose target and find direction
-				MapLocation target = chooseTarget(enemies);
-				Direction targetDir = rc.getLocation().directionTo(target);
 				// fire at enemy
+				Direction targetDir = randomDirection();
 				if(enemies.length > 0){
+					MapLocation target = chooseTarget(enemies);
+					targetDir = rc.getLocation().directionTo(target);
 					int shotType = chooseShotType(target);
 					if(shotType == 1 && rc.canFireSingleShot()) {
 						rc.fireSingleShot(targetDir);
@@ -183,11 +181,12 @@ public strictfp class RobotPlayer {
 				Direction dirOfMovement = moveDirection(targetDir);
 				if(dirOfMovement != null && rc.canMove(dirOfMovement)) {
 					rc.move(dirOfMovement);
-				} else {
-					Direction dir = randomDirection();
-					if(rc.canMove(dir)) {
-						rc.move(dir);
-					}
+				}
+				else {
+					Direction randomDir = randomDirection();
+					if(rc.canMove(randomDir)){
+						rc.move(randomDir);
+					}					
 				}
 				// Clock.yield() makes the robot wait until the next turn, then it will perform this loop again
 				Clock.yield();
@@ -210,15 +209,18 @@ public strictfp class RobotPlayer {
 		for(int i = 0; i < enemies.length; i++) {
 			//Adds 3 things together:
 			//1: gets the distance to the other robot, squares it
-			robotPoints[i] = enemies[i].location.distanceSquaredTo(rc.getLocation());
-			//2: gets the percent health (as a decimal) that the other robot is at and multiplies that decimal by 5
-			robotPoints[i] += (float)(enemies[i].getHealth()/enemies[i].getType().maxHealth)*5;
+			robotPoints[i] = enemies[i].location.distanceSquaredTo(rc.getLocation())/10;
+			//System.out.println("Distance: " + enemies[i].location.distanceSquaredTo(rc.getLocation())/5);
+			//2: gets the percent health (as a decimal) that the other robot is at and multiplies that decimal by 10
+			robotPoints[i] += (float)(enemies[i].getHealth()/enemies[i].getType().maxHealth)*10;
+			//System.out.println("Health: " + (float)(enemies[i].getHealth()/enemies[i].getType().maxHealth)*10);
 			//3: gets the map value for the type of robot
-			robotPoints[i] += RobotTypePoints.get(enemies[i].getType());
+			robotPoints[i] += RobotTypePoints.get(enemies[i].getType())*3;
+			//System.out.println("Type: " + RobotTypePoints.get(enemies[i].getType())*3);
 		}
 		int counter = 0;
 		for(int i = 1; i < robotPoints.length; i++){
-			if(robotPoints[counter] > robotPoints[i]){
+			if(robotPoints[counter] < robotPoints[i]){
 				counter = i;
 			}
 		}
