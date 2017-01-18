@@ -11,6 +11,7 @@ public strictfp class RobotPlayer {
 	static int ARCHON_DISTRESS_CHANNEL = 3;
 	static int ARCHON_NUM_CHANNEL = 4;
 	static int ARCHON_PRODUCTION_CHANNEL = 5;
+	static int ARCHON_TOTAL_CHANNEL = 6;
 	static Team ourTeam;
 	static Team opponentTeam;
 	
@@ -25,6 +26,8 @@ public strictfp class RobotPlayer {
 		// This is the RobotController object. You use it to perform actions from this robot,
 		// and to get information on its current status.
 		RobotPlayer.rc = rc;
+		ourTeam = rc.getTeam();
+		opponentTeam = rc.getTeam().opponent();
 
 
 		// Here, we've separated the controls into a different method for each RobotType.
@@ -56,6 +59,7 @@ public strictfp class RobotPlayer {
 	static void runArchon() throws GameActionException {
 		MapLocation[] initialArchonLoc = rc.getInitialArchonLocations(rc.getTeam());
 		int numberOfArchons = initialArchonLoc.length;
+		rc.broadcast(ARCHON_TOTAL_CHANNEL, numberOfArchons);
 		int archonNum = 0;
 		boolean pinged = false;
 		int numDecs = 0;
@@ -73,10 +77,10 @@ public strictfp class RobotPlayer {
 				if (rc.getHealth()<10 && !pinged){
 					rc.broadcast(ARCHON_DISTRESS_CHANNEL, rc.readBroadcast(ARCHON_DISTRESS_CHANNEL)+1);
 					rc.broadcast(ARCHON_NUM_CHANNEL, archonNum);
+					rc.broadcast(ARCHON_TOTAL_CHANNEL, rc.readBroadcast(ARCHON_TOTAL_CHANNEL)-1);
 					pinged = true;
 				}
-				if (numberOfArchons-rc.readBroadcast(ARCHON_DISTRESS_CHANNEL)<numberOfArchons){
-					numberOfArchons--;
+				if (rc.readBroadcast(ARCHON_TOTAL_CHANNEL)-rc.readBroadcast(ARCHON_DISTRESS_CHANNEL)<rc.readBroadcast(ARCHON_TOTAL_CHANNEL)){
 					if (archonNum>rc.readBroadcast(ARCHON_NUM_CHANNEL) && numDecs<rc.readBroadcast(ARCHON_DISTRESS_CHANNEL)){
 						archonNum--;
 						numDecs++;
@@ -89,7 +93,10 @@ public strictfp class RobotPlayer {
 				int deadGardeners = rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL);
 				if (rc.canHireGardener(dir) && checkGardeners(deadGardeners, distressSignals)) {
 					// figure out which archon will build gardener
-					if(Math.abs(deadGardeners) % (numberOfArchons) == archonNum) {
+					System.out.println("First Part " +(Math.abs(deadGardeners) % (rc.readBroadcast(ARCHON_TOTAL_CHANNEL))));
+					System.out.println("NumberOfArchons " + rc.readBroadcast(ARCHON_TOTAL_CHANNEL));
+					System.out.println("arch num " +archonNum);
+					if(Math.abs(deadGardeners) % (rc.readBroadcast(ARCHON_TOTAL_CHANNEL)) == archonNum) {
 						rc.hireGardener(dir);
 						rc.broadcast(GARDENER_PRODUCTION_CHANNEL, rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL)+1);
 						System.out.println(rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL));
@@ -129,6 +136,8 @@ public strictfp class RobotPlayer {
 				}
 				if (rc.readBroadcast(GARDENER_DISTRESS_CHANNEL) != rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL)) {
 					toProduce = false;
+					System.out.println("Distress " + rc.readBroadcast(GARDENER_DISTRESS_CHANNEL));
+					System.out.println("Production " + rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL));
 				} else {
 					toProduce = true;
 				}
@@ -152,7 +161,6 @@ public strictfp class RobotPlayer {
 
 	static void runSoldier() throws GameActionException {
 		System.out.println("I'm a soldier!");
-		Team enemy = rc.getTeam().opponent();
 		// The code you want your robot to perform every round should be in this loop
 		while (true) {
 
@@ -164,11 +172,11 @@ public strictfp class RobotPlayer {
 					MapLocation target = chooseTarget(enemies);
 					Direction targetDir = rc.getLocation().directionTo(target);
 					int shotType = chooseShotType(target);
-					if(shotType == 1) {
+					if(shotType == 1 && rc.canFireSingleShot()) {
 						rc.fireSingleShot(targetDir);
-					} else if (shotType == 3) {
+					} else if (shotType == 3 && rc.canFireTriadShot()) {
 						rc.fireTriadShot(targetDir);
-					} else {
+					} else if(rc.canFirePentadShot()) {
 						rc.firePentadShot(targetDir);
 					}
 				}
@@ -267,7 +275,6 @@ public strictfp class RobotPlayer {
 	}
 	static void runTank() throws GameActionException {
 		System.out.println("I'm a Tank!");
-		Team enemy = rc.getTeam().opponent();
 
 		// The code you want your robot to perform every round should be in this loop
 		while (true) {
@@ -284,7 +291,6 @@ public strictfp class RobotPlayer {
 
 	static void runScout() throws GameActionException {
 		System.out.println("I'm a Scout!");
-		Team enemy = rc.getTeam().opponent();
 
 		// The code you want your robot to perform every round should be in this loop
 		while (true) {
