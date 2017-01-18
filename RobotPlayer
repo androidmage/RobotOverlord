@@ -1,4 +1,5 @@
 package examplefuncsplayer;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -93,13 +94,9 @@ public strictfp class RobotPlayer {
 				int deadGardeners = rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL);
 				if (rc.canHireGardener(dir) && checkGardeners(deadGardeners, distressSignals)) {
 					// figure out which archon will build gardener
-					System.out.println("First Part " +(Math.abs(deadGardeners) % (rc.readBroadcast(ARCHON_TOTAL_CHANNEL))));
-					System.out.println("NumberOfArchons " + rc.readBroadcast(ARCHON_TOTAL_CHANNEL));
-					System.out.println("arch num " +archonNum);
 					if(Math.abs(deadGardeners) % (rc.readBroadcast(ARCHON_TOTAL_CHANNEL)) == archonNum) {
 						rc.hireGardener(dir);
 						rc.broadcast(GARDENER_PRODUCTION_CHANNEL, rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL)+1);
-						System.out.println(rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL));
 					}					
 				}
 
@@ -166,11 +163,13 @@ public strictfp class RobotPlayer {
 
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
 			try {
+				//sense enemy robots
 				RobotInfo[] enemies = rc.senseNearbyRobots(RobotType.SOLDIER.sensorRadius, opponentTeam);
-				
+				// choose target and find direction
+				MapLocation target = chooseTarget(enemies);
+				Direction targetDir = rc.getLocation().directionTo(target);
+				// fire at enemy
 				if(enemies.length > 0){
-					MapLocation target = chooseTarget(enemies);
-					Direction targetDir = rc.getLocation().directionTo(target);
 					int shotType = chooseShotType(target);
 					if(shotType == 1 && rc.canFireSingleShot()) {
 						rc.fireSingleShot(targetDir);
@@ -178,6 +177,16 @@ public strictfp class RobotPlayer {
 						rc.fireTriadShot(targetDir);
 					} else if(rc.canFirePentadShot()) {
 						rc.firePentadShot(targetDir);
+					}
+				}
+				// try to move towards enemy direction
+				Direction dirOfMovement = moveDirection(targetDir);
+				if(dirOfMovement != null && rc.canMove(dirOfMovement)) {
+					rc.move(dirOfMovement);
+				} else {
+					Direction dir = randomDirection();
+					if(rc.canMove(dir)) {
+						rc.move(dir);
 					}
 				}
 				// Clock.yield() makes the robot wait until the next turn, then it will perform this loop again
@@ -307,6 +316,98 @@ public strictfp class RobotPlayer {
 		}
 
 	}
+	
+	static boolean willCollideWithMapLoc(BulletInfo bullet, MapLocation loc) {
+
+		MapLocation myLocation = loc;
+		// Get relevant bullet information
+		Direction propagationDirection = bullet.dir;
+		MapLocation bulletLocation = bullet.location;
+
+		// Calculate bullet relations to this robot
+		Direction directionToRobot = bulletLocation.directionTo(myLocation);
+		float distToRobot = bulletLocation.distanceTo(myLocation);
+		float theta = propagationDirection.radiansBetween(directionToRobot);
+
+		// If theta > 90 degrees, then the bullet is traveling away from us and we can break early
+		if (Math.abs(theta) > Math.PI/2) {
+			return false;
+		}
+
+
+
+		// distToRobot is our hypotenuse, theta is our angle, and we want to know this length of the opposite leg.
+		// This is the distance of a line that goes from myLocation and intersects perpendicularly with propagationDirection.
+		// This corresponds to the smallest radius circle centered at our location that would intersect with the
+		// line that is the path of the bullet.
+		float perpendicularDist = (float)Math.abs(distToRobot * Math.sin(theta)); // soh cah toa :)
+		
+		return (perpendicularDist <= rc.getType().bodyRadius);
+	}
+
+	
+	static Direction moveDirection(Direction movement){
+		// Direction is movement that RC fired bullet
+		// If rc didn't fire a bullet, put the direction as the direction 180 away from the archon
+		BulletInfo[] bullets = rc.senseNearbyBullets();
+		if(bullets.length > 0){
+			boolean[] bulletsHit = new boolean[bullets.length];
+			boolean danger = false;
+			int counter = 0;
+			while(!danger && counter<bulletsHit.length){
+				if(willCollideWithMe(bullets[counter])){
+					danger = true;
+				}
+				counter++;
+			}
+
+			if(danger){
+				float rad = rc.getType().strideRadius;
+				ArrayList<Tuple<Direction, Integer>> bulletsPerDir = new ArrayList<Tuple<Direction, Integer>>();
+				int multiplier = 1;
+				for(int i = 0; i < 180; i+= 30){
+					for(int l = 0; l < 2; l++){
+						if(l == 0){
+							l = 1;
+						}
+						else{
+							l = -1;
+						}
+						MapLocation newLoc = rc.getLocation().add(movement.opposite().rotateLeftDegrees(i * l), rad);
+						for(int j = 0; j < bullets.length; j++){
+							int bulletCounter = 0;
+							for(int k = 0; k < bullets.length; k++){
+								if(willCollideWithMapLoc(bullets[k], newLoc)){
+									bulletCounter++;
+								}
+							}
+							if(bulletCounter == 0){
+								return rc.getLocation().directionTo(newLoc);
+							}
+							else{
+								bulletsPerDir.add(new Tuple<Direction, Integer>(rc.getLocation().directionTo(newLoc), bulletCounter));
+							}
+						}
+					}
+				}
+				int pos = 0;
+				int minBullets = bulletsPerDir.get(0).second;
+				//find position of the lowest bullets in direction
+				for(int i = 1; i < bulletsPerDir.size(); i++) {
+					int bulletsInDir = bulletsPerDir.get(i).second;
+					if(bulletsInDir < minBullets) {
+						minBullets = bulletsInDir;
+						pos = i;
+					}
+				}
+				return bulletsPerDir.get(pos).first;
+			}
+			else{
+				return null;
+			}
+		}
+		return null;
+	}
 
 	/**
 	 * Returns a random Direction
@@ -399,4 +500,18 @@ public strictfp class RobotPlayer {
 
 		return (perpendicularDist <= rc.getType().bodyRadius);
 	}
+}
+
+/**
+ * Tuple
+ * 
+ * a simple tuple class so that tuples can be used.
+ */
+class Tuple<X, Y> { 
+	public X first; 
+	public Y second; 
+	public Tuple(X first, Y second) { 
+		this.first = first; 
+		this.second = second; 
+	} 
 }
