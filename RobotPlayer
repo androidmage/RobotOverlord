@@ -126,10 +126,9 @@ public strictfp class RobotPlayer {
 		rc.broadcast(GARDENER_PRODUCTION_CHANNEL, rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL)+1);
 		boolean toProduce = false;
 		boolean pinged = false;
-		//int tankCount = 0;
 		int buildCount = 0;
 
-		int id = Math.abs(rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL))%2; 
+		int id = Math.abs(rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL))%2;
 		System.out.println(id);
 		int spawnRound = rc.getRoundNum();
 		int pauseProductionRound = rc.getRoundLimit();
@@ -166,9 +165,6 @@ public strictfp class RobotPlayer {
 				} else {
 					toProduce = true;
 				}
-				if(pauseProductionRound - rc.getRoundNum() < 50) {
-					toProduce = false;
-				}
 				RobotType potentialRobot = productionSchedule.get(productionCount % productionSchedule.size());
 				if(toProduce && rc.canBuildRobot(potentialRobot, dir) && id == 1) {
 					rc.buildRobot(potentialRobot, dir);
@@ -193,52 +189,90 @@ public strictfp class RobotPlayer {
 			Direction directionToArchon = rc.getLocation().directionTo(rc.getInitialArchonLocations(rc.getTeam())[0]);
 			//tree gardener id 0
 			if(id == 0){
-				TreeInfo[] nearbyTrees = rc.senseNearbyTrees(rc.getType().sensorRadius, rc.getTeam());
-				if(nearbyTrees.length == 0){
-					for(int i = 0; i < 360; i+=90){
-						if(rc.canPlantTree(directionToArchon.rotateLeftDegrees(i))){
-							rc.plantTree(directionToArchon.rotateLeftDegrees(i));
+				TreeInfo[] nearbyTrees = rc.senseNearbyTrees(2, rc.getTeam());
+				if(nearbyTrees.length < 6){
+					if(nearbyTrees.length==0){
+						for(int i = 0; i < 360; i+=60){
+							if(rc.canPlantTree(directionToArchon.rotateLeftDegrees(i))){
+								rc.plantTree(directionToArchon.rotateLeftDegrees(i));
+							}
 						}
-					}
-				}
-				if(nearbyTrees.length < 4 && nearbyTrees.length>0){
+					}else{
 					Direction dir = rc.getLocation().directionTo(nearbyTrees[0].location);
-					for(int i = 90; i < 360; i+= 90){
+					for(int i = 60; i < 360; i+= 60){
 						if(rc.canPlantTree(dir.rotateLeftDegrees(i))){
 							rc.plantTree(dir.rotateLeftDegrees(i));
 						}
+						
 					}
 				}
-				if(nearbyTrees.length >0){
-					float[] remainingHealth = new float[4];
-					for(int i = 0; i < nearbyTrees.length; i++){
-						remainingHealth[i] = nearbyTrees[0].getHealth();
+				}
+				if(nearbyTrees.length > 0){
+					float[] remainingHealth = new float[nearbyTrees.length];
+					for(int j = 0; j < nearbyTrees.length; j++){
+						remainingHealth[j] = nearbyTrees[j].getHealth();
 					}
 					int lowestSpot = 0;
-					for(int i = 1; i < remainingHealth.length; i++){
-						if(remainingHealth[i] < remainingHealth[lowestSpot]){
-							lowestSpot = i;
+					for(int k = 1; k < remainingHealth.length; k++){
+						if(remainingHealth[k] < remainingHealth[lowestSpot]){
+							lowestSpot = k;
 						}
+					}
+					if (rc.canMove(rc.getLocation().directionTo(nearbyTrees[lowestSpot].location))){
+						rc.move(rc.getLocation().directionTo(nearbyTrees[lowestSpot].location));
 					}
 					if (nearbyTrees.length > lowestSpot){
 					if(rc.canWater(nearbyTrees[lowestSpot].getLocation())){
 						rc.water(nearbyTrees[lowestSpot].getLocation());
 					}
-					else{
+					}
+				}
+			}else{
+				TreeInfo[] nearbyTrees = rc.senseNearbyTrees(2, rc.getTeam());
+				if(nearbyTrees.length < 5){
+					if(nearbyTrees.length==0){
+						for(int i = 0; i < 360; i+=60){
+							if(rc.canPlantTree(directionToArchon.rotateLeftDegrees(i))){
+								rc.plantTree(directionToArchon.rotateLeftDegrees(i));
+							}
+						}
+					}else{
+					Direction dir = rc.getLocation().directionTo(nearbyTrees[0].location);
+					for(int i = 60; i < 300; i+= 60){
+						if(rc.canPlantTree(dir.rotateLeftDegrees(i))){
+							rc.plantTree(dir.rotateLeftDegrees(i));
+						}
+						
+					}
+				}
+				}
+				if(nearbyTrees.length > 0){
+					float[] remainingHealth = new float[nearbyTrees.length];
+					for(int j = 0; j < nearbyTrees.length; j++){
+						remainingHealth[j] = nearbyTrees[j].getHealth();
+					}
+					int lowestSpot = 0;
+					for(int k = 1; k < remainingHealth.length; k++){
+						if(remainingHealth[k] < remainingHealth[lowestSpot]){
+							lowestSpot = k;
+						}
+					}
+					if (rc.canMove(rc.getLocation().directionTo(nearbyTrees[lowestSpot].location))){
 						rc.move(rc.getLocation().directionTo(nearbyTrees[lowestSpot].location));
+					}
+					if (nearbyTrees.length > lowestSpot){
+					if(rc.canWater(nearbyTrees[lowestSpot].getLocation())){
+						rc.water(nearbyTrees[lowestSpot].getLocation());
 					}
 					}
 				}
 			}
-			//robot gardener id 1
-			else{
-				//RACHEL IS WRITING THIS PART
-			}
+			
 		}catch(Exception e){
 			System.out.println(e);
 			e.printStackTrace();
 		}
-	}
+}
 
 
 	static void runSoldier() throws GameActionException {
