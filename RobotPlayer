@@ -74,9 +74,7 @@ public strictfp class RobotPlayer {
 		while (true) {
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
 			try {
-				if(rc.getRoundNum() > 1500) {
 					donateBullets();
-				}
 				
 				if (rc.getRoundNum() == 500 && archonNum == 0){
 					rc.broadcast(GARDENER_PRODUCTION_CHANNEL, rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL)-rc.readBroadcast(ARCHON_TOTAL_CHANNEL));
@@ -128,8 +126,11 @@ public strictfp class RobotPlayer {
 
 	static void donateBullets() throws GameActionException {
 		float bullets = rc.getTeamBullets();
-		if(bullets - 300 > 0) {
-			rc.donate(bullets - 300 - (bullets % 10));
+		if(bullets - 3200 + rc.getRoundNum() > 0) {
+			rc.donate(bullets - 3200+rc.getRoundNum() - (bullets % 10));
+		}
+		if(bullets >= 10000){
+			rc.donate(bullets-(bullets%10));
 		}
 	}
 	
@@ -156,7 +157,6 @@ public strictfp class RobotPlayer {
 		while (true){
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
 			try {
-				shakeTrees();
 				
 				// Generate a random direction
 				Direction dir = randomDirection();
@@ -279,7 +279,7 @@ public strictfp class RobotPlayer {
 					}
 				}
 			}
-			
+			shakeTrees();	
 		}catch(Exception e){
 			System.out.println(e);
 			e.printStackTrace();
@@ -325,6 +325,25 @@ public strictfp class RobotPlayer {
 	static void shakeTrees() throws GameActionException {
 		TreeInfo[] neutralTrees = rc.senseNearbyTrees(rc.getType().sensorRadius, Team.NEUTRAL);
 		if (neutralTrees.length > 0){
+			ArrayList<TreeInfo> bulleted = new ArrayList<TreeInfo>();
+			for (int i = 0; i<neutralTrees.length; i++){
+				if (neutralTrees[i].containedBullets > 0){
+					bulleted.add(neutralTrees[i]);
+					}
+				}
+			if (bulleted.size() > 0){
+			float dist = 10000;
+			int closest = 0;
+			for (int i = 0; i<bulleted.size(); i++){
+			if (bulleted.get(i).getLocation().distanceTo(rc.getLocation())<dist){
+				dist = bulleted.get(i).getLocation().distanceTo(rc.getLocation());
+				closest = i;
+			}
+			}
+			if(rc.canMove(rc.getLocation().directionTo(bulleted.get(closest).getLocation())) && !rc.hasMoved()){
+			rc.move(rc.getLocation().directionTo(bulleted.get(closest).getLocation()));
+			}
+			}
 			for (int i = 0; i<neutralTrees.length; i++){
 				MapLocation loc = neutralTrees[i].location;
 				if(rc.canShake(loc)){
@@ -356,6 +375,7 @@ public strictfp class RobotPlayer {
 			if(trees.length > 0) {
 				target = chooseTreeTarget(trees);
 				targetDir = rc.getLocation().directionTo(target);
+				if(rc.canFireSingleShot())
 				rc.fireSingleShot(targetDir);
 				return targetDir;
 			} else {
@@ -739,7 +759,7 @@ public strictfp class RobotPlayer {
 	static boolean tryMove(Direction dir, float degreeOffset, int checksPerSide) throws GameActionException {
 
 		// First, try intended direction
-		if (rc.canMove(dir)) {
+		if (rc.canMove(dir) && !rc.hasMoved()) {
 			rc.move(dir);
 			return true;
 		}
@@ -750,12 +770,12 @@ public strictfp class RobotPlayer {
 
 		while(currentCheck<=checksPerSide) {
 			// Try the offset of the left side
-			if(rc.canMove(dir.rotateLeftDegrees(degreeOffset*currentCheck))) {
+			if(rc.canMove(dir.rotateLeftDegrees(degreeOffset*currentCheck)) && !rc.hasMoved()) {
 				rc.move(dir.rotateLeftDegrees(degreeOffset*currentCheck));
 				return true;
 			}
 			// Try the offset on the right side
-			if(rc.canMove(dir.rotateRightDegrees(degreeOffset*currentCheck))) {
+			if(rc.canMove(dir.rotateRightDegrees(degreeOffset*currentCheck)) && !rc.hasMoved()) {
 				rc.move(dir.rotateRightDegrees(degreeOffset*currentCheck));
 				return true;
 			}
