@@ -126,11 +126,13 @@ public strictfp class RobotPlayer {
 
 	static void donateBullets() throws GameActionException {
 		float bullets = rc.getTeamBullets();
-		if(bullets - 3200 + rc.getRoundNum() > 0) {
-			rc.donate(bullets - 3200+rc.getRoundNum());
+		float surplus = bullets - 900 + rc.getRoundNum() / 10;
+		if(surplus > 0) {
+			rc.donate(surplus - (surplus % 10));
 		}
-		if(rc.getTeamVictoryPoints() - (bullets / (7.5*12.5/3000)) >= 10000){
-			rc.donate(bullets-(bullets%10));
+		// if can win this turn, then win this turn
+		if(rc.getTeamVictoryPoints() + (bullets / (7.5 + rc.getRoundNum() * 12.5 / 3000)) >= 1000){
+			rc.donate(bullets);
 		}
 	}
 	
@@ -149,11 +151,10 @@ public strictfp class RobotPlayer {
 		ArrayList<RobotType> productionSchedule = new ArrayList<RobotType>();
 		productionSchedule.add(RobotType.SCOUT);
 		productionSchedule.add(RobotType.SOLDIER);
-		productionSchedule.add(RobotType.SCOUT);
-		productionSchedule.add(RobotType.SOLDIER);
-		productionSchedule.add(RobotType.SCOUT);
 		productionSchedule.add(RobotType.SOLDIER);
 		productionSchedule.add(RobotType.LUMBERJACK);
+		productionSchedule.add(RobotType.SOLDIER);
+		productionSchedule.add(RobotType.TANK);
 		while (true){
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
 			try {
@@ -167,7 +168,10 @@ public strictfp class RobotPlayer {
 			    	// moves for us
 					GardenersMove(id);
 			    }
-			    shakeTrees();
+			    TreeInfo[] neutralTrees = rc.senseNearbyTrees(rc.getType().sensorRadius, Team.NEUTRAL);
+				if (neutralTrees.length > 0) {
+					shakeTrees(neutralTrees);
+				}
 				if (rc.getHealth()<5 && !pinged){
 					rc.broadcast(GARDENER_DISTRESS_CHANNEL, rc.readBroadcast(GARDENER_DISTRESS_CHANNEL)+1);
 					pinged = true;
@@ -321,8 +325,7 @@ public strictfp class RobotPlayer {
 		}
 	}
 	
-	static void shakeTrees() throws GameActionException {
-		TreeInfo[] neutralTrees = rc.senseNearbyTrees(rc.getType().sensorRadius, Team.NEUTRAL);
+	static void shakeTrees(TreeInfo[] neutralTrees) throws GameActionException {
 		if (neutralTrees.length > 0){
 			ArrayList<TreeInfo> bulleted = new ArrayList<TreeInfo>();
 			for (int i = 0; i<neutralTrees.length; i++){
@@ -602,28 +605,35 @@ public strictfp class RobotPlayer {
 
 	static void runScout() throws GameActionException {
 		System.out.println("I'm a Scout!");
+		
+		RobotInfo[] initialRobots = rc.senseNearbyRobots(2, ourTeam);
+		Direction bounceDirection = randomDirection();
+		for(int i = 0; i < initialRobots.length; i++) {
+			RobotInfo robot = initialRobots[i];
+			if(robot.type.equals(RobotType.GARDENER)) {
+				bounceDirection = robot.location.directionTo(rc.getLocation());
+			}
+		}
 
 		// The code you want your robot to perform every round should be in this loop
 		while (true) {
 			try{
-				shakeTrees();
-				Direction targetDir = randomDirection();
+				TreeInfo[] neutralTrees = rc.senseNearbyTrees(rc.getType().sensorRadius, Team.NEUTRAL);
+				if (neutralTrees.length > 0) {
+					shakeTrees(neutralTrees);
+				}
 				//sense enemy robots and trees
 				RobotInfo[] enemies = rc.senseNearbyRobots(RobotType.SOLDIER.sensorRadius, opponentTeam);
 				TreeInfo[] trees = rc.senseNearbyTrees(rc.getType().sensorRadius, opponentTeam);
 				if(enemies.length > 0 || trees.length > 0){
-					targetDir = attack(enemies, trees);
-				}
-				// try to move towards enemy direction
-				Direction dirOfMovement = moveDirection(targetDir);
-				if(dirOfMovement != null && rc.canMove(dirOfMovement)) {
-					rc.move(dirOfMovement);
-				}
-				else {
-					Direction randomDir = randomDirection();
-					if(rc.canMove(randomDir)){
-						tryMove(randomDir);
-					}					
+					Direction targetDir = attack(enemies, trees);
+					// try to move towards enemy direction
+					Direction dirOfMovement = moveDirection(targetDir);
+					if(dirOfMovement != null && rc.canMove(dirOfMovement)) {
+						rc.move(dirOfMovement);
+					}
+				} else if (!rc.hasMoved()) {
+					bounceDirection = bounce(bounceDirection);
 				}
 				// Clock.yield() makes the robot wait until the next turn, then it will perform this loop again
 				Clock.yield();
@@ -633,6 +643,16 @@ public strictfp class RobotPlayer {
 			}
 		}
 
+	}
+	
+	static Direction bounce(Direction bounceDirection) throws GameActionException {
+		MapLocation moveLocation = rc.getLocation().add(bounceDirection, rc.getType().strideRadius);
+		if(rc.canMove(moveLocation) && rc.onTheMap(moveLocation)) {
+			rc.move(moveLocation);
+		} else {
+			bounceDirection = bounceDirection.rotateRightDegrees(90);
+		}
+		return bounceDirection;
 	}
 	
 	static boolean willCollideWithMapLoc(BulletInfo bullet, MapLocation loc) {
