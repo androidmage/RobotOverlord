@@ -127,9 +127,9 @@ public strictfp class RobotPlayer {
 	static void donateBullets() throws GameActionException {
 		float bullets = rc.getTeamBullets();
 		if(bullets - 3200 + rc.getRoundNum() > 0) {
-			rc.donate(bullets - 3200+rc.getRoundNum() - (bullets % 10));
+			rc.donate(bullets - 3200+rc.getRoundNum());
 		}
-		if(rc.getTeamVictoryPoints() - (bullets / 10) >= 10000){
+		if(rc.getTeamVictoryPoints() - (bullets / (7.5*12.5/3000)) >= 10000){
 			rc.donate(bullets-(bullets%10));
 		}
 	}
@@ -161,13 +161,13 @@ public strictfp class RobotPlayer {
 				// Generate a random direction
 				Direction dir = randomDirection();
 				buildCount++;
-			    if(rc.getRoundNum() < spawnRound + 100) {
+			    if(rc.getRoundNum() < spawnRound + 50) {
 			    	tryMove(dir);
 			    } else {
 			    	// moves for us
 					GardenersMove(id);
 			    }
-
+			    shakeTrees();
 				if (rc.getHealth()<5 && !pinged){
 					rc.broadcast(GARDENER_DISTRESS_CHANNEL, rc.readBroadcast(GARDENER_DISTRESS_CHANNEL)+1);
 					pinged = true;
@@ -197,7 +197,7 @@ public strictfp class RobotPlayer {
 	}
 	static void GardenersMove(int id) throws GameActionException{
 		try{
-			//put this instantiation before while loop!!!!!!!!!!!
+			//Change to direction to closest offmap spot plus 90 degrees
 			Direction directionToArchon = rc.getLocation().directionTo(rc.getInitialArchonLocations(rc.getTeam())[0]);
 			//tree gardener id 0
 			if(id == 0){
@@ -279,7 +279,6 @@ public strictfp class RobotPlayer {
 					}
 				}
 			}
-			shakeTrees();	
 		}catch(Exception e){
 			System.out.println(e);
 			e.printStackTrace();
@@ -340,7 +339,7 @@ public strictfp class RobotPlayer {
 				closest = i;
 			}
 			}
-			if(rc.canMove(rc.getLocation().directionTo(bulleted.get(closest).getLocation())) && !rc.hasMoved()){
+			if(rc.canMove(rc.getLocation().directionTo(bulleted.get(closest).getLocation())) && !rc.hasMoved() && rc.getType() != RobotType.GARDENER){
 			rc.move(rc.getLocation().directionTo(bulleted.get(closest).getLocation()));
 			}
 			}
