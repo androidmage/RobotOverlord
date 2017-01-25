@@ -713,45 +713,45 @@ public strictfp class RobotPlayer {
 		// The code you want your robot to perform every round should be in this loop
 		while (true) {
 			try{
-				
-				//sense enemy robots and trees
+				Team enemy = rc.getTeam().opponent();
 				Direction targetDir = randomDirection();
-				RobotInfo[] enemies = rc.senseNearbyRobots(RobotType.SOLDIER.sensorRadius, opponentTeam);
+				//sense enemy robots and trees
+				RobotInfo[] enemies = rc.senseNearbyRobots(RobotType.TANK.sensorRadius, opponentTeam);
 				TreeInfo[] trees = rc.senseNearbyTrees(rc.getType().sensorRadius, opponentTeam);
-				if(enemies.length > 0 || trees.length > 0){
-					targetDir = attack(enemies, trees);
-				}
-				
-				// get target location and direction
-				int xCoord = rc.readBroadcast(TARGET_X_COORD);
-				int yCoord = rc.readBroadcast(TARGET_Y_COORD);
-				MapLocation targetLoc = new MapLocation(xCoord, yCoord);
-				
-				// if at target, broadcast
-				if (xCoord != 0) {
-					if(rc.getLocation().isWithinDistance(targetLoc, 2)) {
-						rc.broadcast(xCoord, 0);
-						rc.broadcast(yCoord, 0);
+				//attack closest enemy tree
+				if(trees.length > 0){
+					TreeInfo closestTree = trees[0];
+					for(int i = 1; i < trees.length; i++){
+						if (myLocation.distanceTo(trees[i].getLocation()) > myLocation.distanceTo(closestTree.getLocation())){
+							closestTree = trees[i];
+						}
+						//if there are two trees the same distance attack the one with lower health
+						if (myLocation.distanceTo(trees[i].getLocation()) == myLocation.distanceTo(closestTree.getLocation())){
+							if(trees[i].getHealth() < closestTree.getHealth()){
+								closestTree = trees[i];
+							}	
+						}
+							
 					}
-					targetDir = rc.getLocation().directionTo(targetLoc);
-					if(!rc.hasMoved() && rc.canMove(targetDir)) {
-						rc.move(targetDir);
+					rc.move(closestTree.getLocation());
+				}
+				//
+				if (enemies.length > 0){
+					if(chooseShotType(chooseRobotTarget(enemies)) == 5){
+						rc.firePentadShot(myLocation.directionTo(chooseRobotTarget(enemies)));
 					}
+					if(chooseShotType(chooseRobotTarget(enemies)) == 3){
+						rc.fireTriadShot(myLocation.directionTo(chooseRobotTarget(enemies)));
+					}
+					if(chooseShotType(chooseRobotTarget(enemies)) == 1){
+						rc.fireSingleShot(myLocation.directionTo(chooseRobotTarget(enemies)));
+					}
+					
 				}
-				
-				// try to move towards enemy direction
-				Direction dirOfMovement = moveDirection(targetDir);
-				if(dirOfMovement != null && rc.canMove(dirOfMovement)) {
-					rc.move(dirOfMovement);
+				// move towards an initial archon location
+				else{
+				    tryMove(attack);
 				}
-				else {
-					Direction randomDir = randomDirection();
-					if(rc.canMove(randomDir)){
-						tryMove(randomDir);
-					}					
-				}
-				
-				
 				// Clock.yield() makes the robot wait until the next turn, then it will perform this loop again
 				Clock.yield();
 
