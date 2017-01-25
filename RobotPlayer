@@ -177,8 +177,9 @@ public strictfp class RobotPlayer {
 		int buildCount = 0;
 
 		rc.broadcast(GARDENER_PRODUCTION_CHANNEL, rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL)+1);
-		int id = Math.abs(rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL))%2;
-		System.out.println(id);
+		//int id = Math.abs(rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL))%2;
+		int id = 1;
+		//System.out.println(id);
 		int spawnRound = rc.getRoundNum();
 		int pauseProductionRound = rc.getRoundLimit();
 		int productionCount = 0;
@@ -193,8 +194,6 @@ public strictfp class RobotPlayer {
 		while (true){
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
 			try {
-				
-				System.out.println(id);
 				// Generate a random direction
 				Direction dir = randomDirection();
 				buildCount++;
@@ -239,29 +238,49 @@ public strictfp class RobotPlayer {
 		try{
 			//Change to direction to closest offmap spot plus 90 degrees
 			MapLocation loc = rc.getLocation();
-			Direction treeDir = null;
-			if (rc.onTheMap(loc.add(Direction.getNorth(), 5.0f))){
-				treeDir = Direction.getEast();
+			Direction treeDir = rc.getLocation().directionTo(rc.getInitialArchonLocations(rc.getTeam())[0]);
+			boolean north = true;
+			boolean south = true;
+			boolean east = true;
+			boolean west = true;
+			if (!rc.canPlantTree(Direction.getNorth())){
+				north = false;
 			}
-			if (rc.onTheMap(loc.add(Direction.getEast(), 5.0f))){
-				treeDir = Direction.getSouth();
+			if (!rc.canPlantTree(Direction.getEast())){
+				east = false;
 			}
-			if (rc.onTheMap(loc.add(Direction.getSouth(), 5.0f))){
-				treeDir = Direction.getWest();
+			if (!rc.canPlantTree(Direction.getSouth())){
+				south = false;
 			}
-			if (rc.onTheMap(loc.add(Direction.getWest(), 5.0f))){
-				treeDir = Direction.getNorth();
+			if (!rc.canPlantTree(Direction.getWest())){
+				west = false;
 			}
+			if (!north || !east || !west || !south){
+				if (!north){
+					treeDir = Direction.getNorth();
+				}
+				if (!east){
+					treeDir = Direction.getEast();
+				}
+				if (!west){
+					treeDir = Direction.getWest();
+				}
+				if (!south){
+					treeDir = Direction.getSouth();
+				}
+				for (int i = 0; i<72; i++){
+					treeDir = treeDir.rotateLeftDegrees(5);
+					if (rc.canPlantTree(treeDir)){
+						break;
+					}
+				}
+				}
 			//tree gardener id 0
-			if(id == 0){
-				TreeInfo[] nearbyTrees = rc.senseNearbyTrees(3, rc.getTeam());
+			/*if(id == 0){
+				TreeInfo[] nearbyTrees = rc.senseNearbyTrees(2, rc.getTeam());
 				if(nearbyTrees.length < 6){
-					if(nearbyTrees.length==0){
-						for(int i = 0; i < 360; i+=60){
-							if(rc.canPlantTree(treeDir.rotateLeftDegrees(i))){
-								rc.plantTree(treeDir.rotateLeftDegrees(i));
-							}
-						}
+							if(rc.canPlantTree(treeDir)){
+								rc.plantTree(treeDir);
 					}else{
 					Direction dir = rc.getLocation().directionTo(nearbyTrees[0].location);
 					for(int i = 60; i < 360; i+= 60){
@@ -292,20 +311,28 @@ public strictfp class RobotPlayer {
 					}
 					}
 				}
-			}else{
+			}else{*/
 				TreeInfo[] nearbyTrees = rc.senseNearbyTrees(2, rc.getTeam());
+				boolean skipped = false;
 				if(nearbyTrees.length < 5){
 					if(nearbyTrees.length==0){
-						for(int i = 0; i < 360; i+=60){
-							if(rc.canPlantTree(treeDir.rotateLeftDegrees(i))){
-								rc.plantTree(treeDir.rotateLeftDegrees(i));
+							if(rc.canPlantTree(treeDir)){
+								rc.plantTree(treeDir);
 							}
-						}
+					}else if (nearbyTrees.length == 5){
+						skipped = false;
 					}else{
 					Direction dir = rc.getLocation().directionTo(nearbyTrees[0].location);
-					for(int i = 60; i < 300; i+= 60){
+					for(int i = 60; i < 360; i+= 60){
 						if(rc.canPlantTree(dir.rotateLeftDegrees(i))){
+							if(rc.canPlantTree(dir.rotateLeftDegrees(i+60))){
 							rc.plantTree(dir.rotateLeftDegrees(i));
+							}else{
+								skipped = true;
+							}
+							if (skipped && rc.senseNearbyTrees(2, rc.getTeam()).length == 4 && rc.canPlantTree(dir.rotateLeftDegrees(i))){
+								rc.plantTree(dir.rotateLeftDegrees(i));
+							}
 						}
 						
 					}
@@ -331,7 +358,6 @@ public strictfp class RobotPlayer {
 					}
 					}
 				}
-			}
 		}catch(Exception e){
 			System.out.println(e);
 			e.printStackTrace();
@@ -661,11 +687,11 @@ public strictfp class RobotPlayer {
 					Direction treeDir = rc.getLocation().directionTo(closestTree.location);
 					if(rc.canChop(closestTree.location)) {
 						rc.chop(closestTree.location);
-					} else if(rc.canMove(treeDir)){
+					} else if(rc.canMove(treeDir) && !rc.hasMoved()){
 						rc.move(treeDir);
 					}
 					Direction dirOfMovement = moveDirection(treeDir);
-					if(dirOfMovement != null && rc.canMove(dirOfMovement)) {
+					if(dirOfMovement != null && rc.canMove(dirOfMovement) && !rc.hasMoved()) {
 						rc.move(dirOfMovement);
 					}
 				} else if (neutralTrees.length > 0) {
@@ -682,14 +708,16 @@ public strictfp class RobotPlayer {
 					if(rc.canChop(closestTree.location)) {
 						rc.chop(closestTree.location);
 					} else {
+						if(rc.canMove(rc.getLocation().directionTo(closestTree.location)) && !rc.hasMoved()){
 						rc.move(rc.getLocation().directionTo(closestTree.location));
+						}
 					}
 					Direction dirOfMovement = moveDirection(treeDir);
 					if(dirOfMovement != null && rc.canMove(dirOfMovement)) {
 						rc.move(dirOfMovement);
 					}
 				}
-				
+				shakeTrees(neutralTrees);
 				if(!rc.hasMoved()) {
 					tryMove(randomDirection());
 				}
@@ -713,7 +741,6 @@ public strictfp class RobotPlayer {
 		// The code you want your robot to perform every round should be in this loop
 		while (true) {
 			try{
-				Team enemy = rc.getTeam().opponent();
 				Direction targetDir = randomDirection();
 				//sense enemy robots and trees
 				RobotInfo[] enemies = rc.senseNearbyRobots(RobotType.TANK.sensorRadius, opponentTeam);
@@ -731,11 +758,9 @@ public strictfp class RobotPlayer {
 								closestTree = trees[i];
 							}	
 						}
-							
-					}
+          }
 					rc.move(closestTree.getLocation());
 				}
-				//
 				if (enemies.length > 0){
 					if(chooseShotType(chooseRobotTarget(enemies)) == 5){
 						rc.firePentadShot(myLocation.directionTo(chooseRobotTarget(enemies)));
@@ -746,8 +771,7 @@ public strictfp class RobotPlayer {
 					if(chooseShotType(chooseRobotTarget(enemies)) == 1){
 						rc.fireSingleShot(myLocation.directionTo(chooseRobotTarget(enemies)));
 					}
-					
-				}
+        }
 				// move towards an initial archon location
 				else{
 				    tryMove(attack);
