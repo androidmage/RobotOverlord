@@ -758,8 +758,7 @@ public strictfp class RobotPlayer {
 								closestTree = trees[i];
 							}	
 						}
-
-					}
+          }
 					rc.move(closestTree.getLocation());
 				}
 				if (enemies.length > 0){
@@ -772,12 +771,11 @@ public strictfp class RobotPlayer {
 					if(chooseShotType(chooseRobotTarget(enemies)) == 1){
 						rc.fireSingleShot(myLocation.directionTo(chooseRobotTarget(enemies)));
 					}
-
-				}else{
-					tryMove(attack);
+        }
+				// move towards an initial archon location
+				else{
+				    tryMove(attack);
 				}
-				
-				
 				// Clock.yield() makes the robot wait until the next turn, then it will perform this loop again
 				Clock.yield();
 
