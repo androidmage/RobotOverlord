@@ -190,6 +190,9 @@ public strictfp class RobotPlayer {
 
 	
 	static void runGardener() throws GameActionException {
+		if(rc.readBroadcast(ARCHON_TOTAL_CHANNEL) == 0){
+			donateBullets();
+		}
 		System.out.println("I'm a gardener!");
 		boolean toProduce = false;
 		boolean pinged = false;
@@ -693,8 +696,8 @@ public strictfp class RobotPlayer {
 		if (rc.canSenseLocation(target)){
 			int robotsNearTarget = rc.senseNearbyRobots(target, 5, opponentTeam).length;
 			int treesNearTarget = rc.senseNearbyTrees(target, 5, opponentTeam).length;
-			if(robotsNearTarget + treesNearTarget >= 3) {
-				if(robotsNearTarget + treesNearTarget >= 5) {
+			if(robotsNearTarget + treesNearTarget >= 2) {
+				if(robotsNearTarget + treesNearTarget >= 3) {
 					shots = 5;
 				} else {
 					shots = 3;
@@ -951,7 +954,8 @@ public strictfp class RobotPlayer {
 						reportEnemyArchons(enemies);
 						System.out.println("Target aquired");
 					}
-				} else if (!rc.hasMoved()) {
+				}
+				if (!rc.hasMoved()) {
 					bounceDirection = bounce(bounceDirection);
 				}
 				// Clock.yield() makes the robot wait until the next turn, then it will perform this loop again
@@ -981,11 +985,21 @@ public strictfp class RobotPlayer {
 	}
 	
 	static Direction bounce(Direction bounceDirection) throws GameActionException {
-		MapLocation moveLocation = rc.getLocation().add(bounceDirection, rc.getType().strideRadius);
+		MapLocation moveLocation = rc.getLocation().add(bounceDirection);
 		if(rc.canMove(moveLocation) && rc.onTheMap(moveLocation)) {
 			rc.move(moveLocation);
 		} else {
-			bounceDirection = bounceDirection.rotateRightDegrees(90);
+			Direction alternateBounce = bounceDirection.rotateRightDegrees(90);
+			if (rc.canMove(alternateBounce)) {
+				bounceDirection = alternateBounce;
+				rc.move(bounceDirection);
+			} else {
+				alternateBounce = bounceDirection.rotateLeftDegrees(90);
+				if (rc.canMove(alternateBounce)) {
+					bounceDirection = alternateBounce;
+					rc.move(bounceDirection);
+				}
+			}
 		}
 		return bounceDirection;
 	}
