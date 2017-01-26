@@ -72,7 +72,7 @@ public strictfp class RobotPlayer {
 				archonNum = i;
 			}
 		}
-		rc.broadcast(GARDENER_PRODUCTION_CHANNEL, -3);
+		rc.broadcast(GARDENER_PRODUCTION_CHANNEL, -1 * numberOfArchons);
 		// The code you want your robot to perform every round should be in this loop
 		while (true) {
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
@@ -101,9 +101,9 @@ public strictfp class RobotPlayer {
 						 rc.broadcast(ARCHON_FUCK_CHANNEL, 0);
 						 }
 				}
-				
-				if (rc.getRoundNum() % 500 == 100 && archonNum == 0){
-					rc.broadcast(GARDENER_PRODUCTION_CHANNEL, rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL)-rc.readBroadcast(ARCHON_TOTAL_CHANNEL));
+				// every 500 rounds produce a gardner unless surrounded
+				if (rc.getRoundNum() % 500 == 100 && !checkSurrounded()){
+					rc.broadcast(GARDENER_PRODUCTION_CHANNEL, rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL) - 1);
 				}
 				if (rc.getHealth()<10 && !pinged){
 					rc.broadcast(ARCHON_DISTRESS_CHANNEL, rc.readBroadcast(ARCHON_DISTRESS_CHANNEL)+1);
@@ -140,6 +140,16 @@ public strictfp class RobotPlayer {
 				e.printStackTrace();
 			}
 		}
+	}
+	
+	static boolean checkSurrounded() {
+		boolean surrounded = false;
+		TreeInfo[] trees = rc.senseNearbyTrees(1);
+		RobotInfo[] robots = rc.senseNearbyRobots(1);
+		if(trees.length + robots.length > 4) {
+			surrounded = true;
+		}
+		return surrounded;
 	}
 	
 	private static int cycleArchonNums(int archonNum) throws GameActionException{
@@ -195,18 +205,24 @@ public strictfp class RobotPlayer {
 		ArrayList<RobotType> productionSchedule = new ArrayList<RobotType>();
 		productionSchedule.add(RobotType.SCOUT);
 		productionSchedule.add(RobotType.LUMBERJACK);
-		productionSchedule.add(RobotType.SOLDIER);
 		productionSchedule.add(RobotType.LUMBERJACK);
 		productionSchedule.add(RobotType.SOLDIER);
 		productionSchedule.add(RobotType.TANK);
+		RobotInfo[] initialRobots = rc.senseNearbyRobots(2, ourTeam);
+		Direction oppDir = randomDirection();
+		for(RobotInfo robot : initialRobots) {
+			if(robot.type.equals(RobotType.ARCHON)) {
+				oppDir = rc.getLocation().directionTo(robot.location).opposite();
+			}
+		}
 		while (true){
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
 			try {
 				// Generate a random direction
 				Direction dir = randomDirection();
 				buildCount++;
-			    if(rc.getRoundNum() < spawnRound + 50) {
-			    	tryMove(dir);
+			    if(rc.getRoundNum() < spawnRound + 10) {
+			    	tryMove(oppDir);
 			    } else {
 			    	// moves for us and builds trees
 					GardenersMove(id);
@@ -225,11 +241,14 @@ public strictfp class RobotPlayer {
 					toProduce = true;
 				}
 				RobotType potentialRobot = productionSchedule.get(productionCount % productionSchedule.size());
-				if(toProduce && rc.canBuildRobot(potentialRobot, dir) && id == 1) {
-					rc.buildRobot(potentialRobot, dir);
-					productionCount++;
-					if(productionCount == productionSchedule.size()) {
-						productionCount = 0;
+				if(rc.isBuildReady() && toProduce && id == 1) {
+					dir = findOpenDirection(potentialRobot);
+					if (dir != null && rc.canBuildRobot(potentialRobot, dir)) {
+						rc.buildRobot(potentialRobot, dir);
+						productionCount++;
+						if(productionCount == productionSchedule.size()) {
+							productionCount = 0;
+						}
 					}
 				}
 
@@ -242,6 +261,25 @@ public strictfp class RobotPlayer {
 			}
 		}
 	}
+	
+	static Direction findOpenDirection(RobotType potentialRobot) {
+		boolean open = false;
+		int degrees = 0;
+		Direction openDir = new Direction(degrees);
+		while(!open && degrees < 360) {
+			openDir = openDir.rotateRightDegrees(10);
+			degrees += 10;
+			if(rc.canBuildRobot(potentialRobot, openDir)) {
+				open = true;
+			}
+		}
+		if (open) {
+			return openDir;
+		} else {
+			return null;
+		}
+	}
+	
 	static void GardenersMove(int id) throws GameActionException{
 		try{
 			//Change to direction to closest offmap spot plus 90 degrees
@@ -396,8 +434,9 @@ public strictfp class RobotPlayer {
 				// if at target, broadcast
 				if (xCoord != 0) {
 					if(rc.getLocation().isWithinDistance(targetLoc, 2)) {
-						rc.broadcast(xCoord, 0);
-						rc.broadcast(yCoord, 0);
+						rc.broadcast(TARGET_X_COORD, 0);
+						rc.broadcast(TARGET_Y_COORD, 0);
+						System.out.println("Reset target");
 					}
 					targetDir = rc.getLocation().directionTo(targetLoc);
 					if(!rc.hasMoved() && rc.canMove(targetDir)) {
@@ -478,8 +517,14 @@ public strictfp class RobotPlayer {
 			if(trees.length > 0) {
 				target = chooseTreeTarget(trees);
 				targetDir = rc.getLocation().directionTo(target);
-				if(rc.canFireSingleShot())
-				rc.fireSingleShot(targetDir);
+				int shotType = chooseShotType(target);
+				if(shotType == 1 && rc.canFireSingleShot()) {
+					rc.fireSingleShot(targetDir);
+				} else if (shotType == 3 && rc.canFireTriadShot()) {
+					rc.fireTriadShot(targetDir);
+				} else if(rc.canFirePentadShot()) {
+					rc.firePentadShot(targetDir);
+				}
 				return targetDir;
 			} else {
 				return randomDirection();
@@ -636,7 +681,7 @@ public strictfp class RobotPlayer {
 			}
 		}
 		
-		if(robotPoints[counter] > 900) {
+		if(robotPoints[counter] > 999) {
 			return null;
 		} else {
 			return enemies[counter].location;
@@ -647,8 +692,9 @@ public strictfp class RobotPlayer {
 		int shots = 1;
 		if (rc.canSenseLocation(target)){
 			int robotsNearTarget = rc.senseNearbyRobots(target, 5, opponentTeam).length;
-			if(robotsNearTarget >= 3) {
-				if(robotsNearTarget >= 6) {
+			int treesNearTarget = rc.senseNearbyTrees(target, 5, opponentTeam).length;
+			if(robotsNearTarget + treesNearTarget >= 3) {
+				if(robotsNearTarget + treesNearTarget >= 5) {
 					shots = 5;
 				} else {
 					shots = 3;
@@ -688,8 +734,9 @@ public strictfp class RobotPlayer {
 				// if at target, broadcast
 				if (xCoord != 0) {
 					if(rc.getLocation().isWithinDistance(targetLoc, 2)) {
-						rc.broadcast(xCoord, 0);
-						rc.broadcast(yCoord, 0);
+						rc.broadcast(TARGET_X_COORD, 0);
+						rc.broadcast(TARGET_Y_COORD, 0);
+						System.out.println("Reset target");
 					}
 					targetDir = rc.getLocation().directionTo(targetLoc);
 					if(!rc.hasMoved() && rc.canMove(targetDir)) {
@@ -816,8 +863,9 @@ public strictfp class RobotPlayer {
 				// if at target, broadcast
 				if (xCoord != 0) {
 					if(rc.getLocation().isWithinDistance(targetLoc, 2)) {
-						rc.broadcast(xCoord, 0);
-						rc.broadcast(yCoord, 0);
+						rc.broadcast(TARGET_X_COORD, 0);
+						rc.broadcast(TARGET_Y_COORD, 0);
+						System.out.println("Reset target");
 					}
 					targetDir = rc.getLocation().directionTo(targetLoc);
 					if(!rc.hasMoved() && rc.canMove(targetDir)) {
@@ -901,6 +949,7 @@ public strictfp class RobotPlayer {
 					//Direction targetDir = attack(enemies, trees);
 					if (rc.readBroadcast(TARGET_X_COORD) == 0) {
 						reportEnemyArchons(enemies);
+						System.out.println("Target aquired");
 					}
 				} else if (!rc.hasMoved()) {
 					bounceDirection = bounce(bounceDirection);
