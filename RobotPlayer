@@ -756,23 +756,19 @@ public strictfp class RobotPlayer {
 
 	static void runLumberjack() throws GameActionException {
 		System.out.println("I'm a lumberjack!");
-
 		// The code you want your robot to perform every round should be in this loop
 		while (true) {
-
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
 			try {
 				// get target location and direction
 				int xCoord = rc.readBroadcast(TARGET_X_COORD);
 				int yCoord = rc.readBroadcast(TARGET_Y_COORD);
 				MapLocation targetLoc = new MapLocation(xCoord, yCoord);
-				
 				//sense enemy robots and trees
 				Direction targetDir = null;
 				RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().sensorRadius, opponentTeam);
 				TreeInfo[] enemyTrees = rc.senseNearbyTrees(rc.getType().sensorRadius, opponentTeam);
 				TreeInfo[] neutralTrees = rc.senseNearbyTrees(rc.getType().sensorRadius, Team.NEUTRAL);
-				
 				// if target eliminated, broadcast : else, set targetDir
 				if (xCoord != 0) {
 					boolean eliminated = checkTarget(targetLoc, targetDir, enemies);
@@ -784,16 +780,13 @@ public strictfp class RobotPlayer {
 						targetDir = rc.getLocation().directionTo(targetLoc);
 					}
 				}
-				
 				MapLocation nearbyTargetLoc = chooseTarget(enemies, enemyTrees);
 				Direction nearbyTargetDir = null;
-				
 				// if no target, choose a nearby enemy
 				if (nearbyTargetLoc != null) {
 					nearbyTargetDir = rc.getLocation().directionTo(nearbyTargetLoc);
-					System.out.println("nearby enemy");
+					System.out.println("nearby enemy LJ");
 				}
-				
 				// move towards enemy
 				if (nearbyTargetDir != null) {
 					if(!rc.hasMoved() && rc.canMove(nearbyTargetDir)) {
@@ -804,57 +797,7 @@ public strictfp class RobotPlayer {
 						rc.move(targetDir);
 					}
 				}
-
-				MapLocation myLoc = rc.getLocation();
-				if(enemyTrees.length > 0 ) {
-					TreeInfo closestTree = enemyTrees[0];
-					float distance = Float.MAX_VALUE;
-					for(int i = 0; i < enemyTrees.length; i++) {
-						float enemyDistance = enemyTrees[i].location.distanceTo(myLoc);
-						if(enemyDistance < distance) {
-							distance = enemyDistance;
-							closestTree = enemyTrees[i];
-						}
-					}
-					Direction treeDir = rc.getLocation().directionTo(closestTree.location);
-					if(rc.canChop(closestTree.location)) {
-						rc.chop(closestTree.location);
-					} else if(rc.canMove(treeDir) && !rc.hasMoved()){
-						rc.move(treeDir);
-					}
-					Direction dirOfMovement = moveDirection(treeDir);
-					if(!rc.hasMoved() && dirOfMovement != null && rc.canMove(dirOfMovement)) {
-						rc.move(dirOfMovement);
-					}
-				} else if (neutralTrees.length > 0) {
-					TreeInfo closestTree = neutralTrees[0];
-					float distance = closestTree.location.distanceTo(myLoc);
-					for(int i = 1; i < neutralTrees.length; i++) {
-						float neutralDistance = neutralTrees[i].location.distanceTo(myLoc);
-						if(neutralDistance < distance) {
-							distance = neutralDistance;
-							closestTree = neutralTrees[i];
-						}
-					}
-					Direction treeDir = rc.getLocation().directionTo(closestTree.location);
-					if(rc.canShake(closestTree.location)){
-						rc.shake(closestTree.location);
-					}
-					if(rc.canChop(closestTree.location)) {
-						rc.chop(closestTree.location);
-					} else if(!rc.hasMoved() && rc.canMove(rc.getLocation().directionTo(closestTree.location))){
-						rc.move(rc.getLocation().directionTo(closestTree.location));
-					}
-					else{
-						Direction dirOfMovement = moveDirection(treeDir);
-						if(!rc.hasMoved() && dirOfMovement != null && rc.canMove(dirOfMovement)) {
-							rc.move(dirOfMovement);
-						}
-						else{
-
-						}
-					}
-				} else if(rc.senseNearbyRobots().length > 0){
+				if(rc.senseNearbyRobots().length > 0){
 					RobotInfo[] nearbyBots = rc.senseNearbyRobots();
 					MapLocation location = rc.getLocation();
 					int numOfEnemies = 0;
@@ -866,38 +809,36 @@ public strictfp class RobotPlayer {
 						else if(nearbyBots[i].getTeam().equals(rc.getTeam().opponent()) && location.isWithinDistance(nearbyBots[i].getLocation(), 2)){
 							numOfEnemies++;
 						}
-
 					}
 					//ratio of friends to enemies 
 					if(((double)numOfFriends)/numOfEnemies < 1){
 						rc.strike();
-					} else{
-						RobotInfo[] nearbyEnemyBots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-						boolean b = true;
-						int count = 0;
-						while(b){
-							try{
-								if(rc.canMove(rc.getLocation().directionTo(nearbyEnemyBots[count].location))){
-									rc.move(rc.getLocation().directionTo(nearbyEnemyBots[count].location));
-									b = false;
-								}
-								else{
-									count++;
-								}
-							}catch(Exception e){
-								b = false;
-							}
-						}
 					}
 				}
-
-				if(!rc.hasMoved()) {
-					tryMove(randomDirection());
-				}
-
+				if (neutralTrees.length > 0) {
+					TreeInfo closestTree = neutralTrees[0];
+					float distance = closestTree.location.distanceTo(rc.getLocation());
+					for(int i = 1; i < neutralTrees.length; i++) {
+						float neutralDistance = neutralTrees[i].location.distanceTo(rc.getLocation());
+						if(neutralDistance < distance) {
+							distance = neutralDistance;
+							closestTree = neutralTrees[i];
+						}
+					}
+					if(rc.canShake(closestTree.location)){
+						rc.shake(closestTree.location);
+					}
+					if(rc.canChop(closestTree.location)) {
+						rc.chop(closestTree.location);
+					} else if(!rc.hasMoved() && rc.canMove(rc.getLocation().directionTo(closestTree.location))){
+						rc.move(rc.getLocation().directionTo(closestTree.location));
+					}
+				} else 
+					if(!rc.hasMoved()) {
+						tryMove(randomDirection());
+					}
 				// Clock.yield() makes the robot wait until the next turn, then it will perform this loop again
 				Clock.yield();
-
 			} catch (Exception e) {
 				System.out.println("Lumberjack Exception");
 				e.printStackTrace();
