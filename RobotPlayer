@@ -458,6 +458,7 @@ public strictfp class RobotPlayer {
 				int xCoord = rc.readBroadcast(TARGET_X_COORD);
 				int yCoord = rc.readBroadcast(TARGET_Y_COORD);
 				MapLocation targetLoc = new MapLocation(xCoord, yCoord);
+
 				RobotInfo[] initialRobots = rc.senseNearbyRobots(2, ourTeam);
 				Direction oppDir = randomDirection();
 				for(RobotInfo robot : initialRobots) {
@@ -468,6 +469,7 @@ public strictfp class RobotPlayer {
 				if(rc.getRoundNum() < spawnRound + 5) {
 					tryMove(oppDir);
 				}
+				
 				//sense enemy robots and trees
 				Direction targetDir = null;
 				RobotInfo[] enemies = rc.senseNearbyRobots(myType.sensorRadius, opponentTeam);
@@ -494,6 +496,18 @@ public strictfp class RobotPlayer {
 				}
 
 				// move towards enemy
+				if (nearbyTargetLoc != null) {
+					RobotInfo b = null;
+					if (rc.canSenseLocation(nearbyTargetLoc)) {
+						b = rc.senseRobotAtLocation(nearbyTargetLoc);
+					}
+					if(!rc.hasMoved() && b != null){
+						MapLocation shifty = stayShifty(b);
+						if(shifty != null){
+							moveToLoc(shifty);
+						}
+					}
+				}
 				if (nearbyTargetDir != null) {
 					if(!rc.hasMoved()) {
 						moveToLoc(nearbyTargetLoc);
@@ -533,8 +547,12 @@ public strictfp class RobotPlayer {
 			int pos = 0;
 			boolean found = false;
 			while (!found && pos < enemies.length) {
-				if (enemies[pos].type.equals(RobotType.ARCHON)) {
+				RobotInfo robot = enemies[pos];
+				RobotType type = robot.type;
+				if (type.equals(RobotType.ARCHON) || type.equals(RobotType.GARDENER)) {
 					found = true;
+					rc.broadcast(TARGET_X_COORD, (int) robot.location.x);
+					rc.broadcast(TARGET_Y_COORD, (int) robot.location.y);
 				}
 				pos++;
 			}
@@ -626,7 +644,7 @@ public strictfp class RobotPlayer {
 
 	static float findObstacleBetweenTreeTarget(float distance, TreeInfo target) throws GameActionException {
 		float points = 0;
-		float minDistance = rc.getType().bodyRadius;
+		float minDistance = rc.getType().bodyRadius + 1;
 		float maxDistance = distance - target.getRadius();
 		MapLocation myLoc = rc.getLocation();
 		Direction dir = myLoc.directionTo(target.location);
@@ -678,7 +696,7 @@ public strictfp class RobotPlayer {
 
 	static float findObstacleBetweenTarget(float distance, RobotInfo target, Map<RobotType, Integer> RobotTypePoints) throws GameActionException {
 		float points = 0;
-		float minDistance = rc.getType().bodyRadius;
+		float minDistance = rc.getType().bodyRadius + 1;
 		float maxDistance = distance - target.getRadius();
 		MapLocation myLoc = rc.getLocation();
 		Direction dir = myLoc.directionTo(target.location);
@@ -688,7 +706,7 @@ public strictfp class RobotPlayer {
 		while(!isObstacle && minDistance < maxDistance) {
 			// get location between you and target
 			MapLocation loc = myLoc.add(dir, minDistance);
-			if(!rc.canSenseLocation(loc)) {
+			if(!rc.canSenseLocation(loc) || minDistance < maxDistance) {
 				break;
 			}
 			// find if robot or tree at location
@@ -736,7 +754,7 @@ public strictfp class RobotPlayer {
 			RobotType enemyType = enemies[i].getType();
 			//Adds 4 things together:
 			//1: gets the distance to the other robot, squares it
-			float distance = enemyLoc.distanceTo(myLoc);
+			float distance = myLoc.distanceTo(enemyLoc);
 			robotPoints[i] = distance * distance /10;
 			//2: gets the percent health (as a decimal) that the other robot is at and multiplies that decimal by 10
 			robotPoints[i] += (float)(enemies[i].getHealth()/enemyType.maxHealth)*10;
@@ -744,9 +762,9 @@ public strictfp class RobotPlayer {
 			robotPoints[i] += RobotTypePoints.get(enemyType)*3;
 			//4: finds if there is something in between you and the target
 			robotPoints[i] += findObstacleBetweenTarget(distance, enemies[i], RobotTypePoints);
-			if(checkFriendlyFire(myLoc.directionTo(enemyLoc))){
-				robotPoints[i] += 1000;
-			}
+//			if(checkFriendlyFire(myLoc.directionTo(enemyLoc))){
+//				robotPoints[i] += 1000;
+//			}
 
 		}
 		int counter = 0;
@@ -795,6 +813,7 @@ public strictfp class RobotPlayer {
 				RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().sensorRadius, opponentTeam);
 				TreeInfo[] enemyTrees = rc.senseNearbyTrees(rc.getType().sensorRadius, opponentTeam);
 				TreeInfo[] neutralTrees = rc.senseNearbyTrees(rc.getType().sensorRadius, Team.NEUTRAL);
+				
 				RobotInfo[] initialRobots = rc.senseNearbyRobots(2, ourTeam);
 				Direction oppDir = randomDirection();
 				for(RobotInfo robot : initialRobots) {
@@ -805,6 +824,7 @@ public strictfp class RobotPlayer {
 				if(rc.getRoundNum() < spawnRound + 5) {
 					tryMove(oppDir);
 				}
+				
 				// if target eliminated, broadcast : else, set targetDir
 				if (xCoord != 0) {
 					boolean eliminated = checkTarget(targetLoc, targetDir, enemies);
@@ -996,18 +1016,40 @@ public strictfp class RobotPlayer {
 				if (neutralTrees.length > 0) {
 					shakeTrees(neutralTrees);
 				}
+				
+				
 				//sense enemy robots and trees
-				RobotInfo[] enemies = rc.senseNearbyRobots(RobotType.SOLDIER.sensorRadius, opponentTeam);
-				TreeInfo[] trees = rc.senseNearbyTrees(rc.getType().sensorRadius, opponentTeam);
-				if(enemies.length > 0 || trees.length > 0){
+				RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().sensorRadius, opponentTeam);
+				MapLocation targetLoc = null;
+				if(enemies.length > 0){
 					//Direction targetDir = attack(enemies, trees);
 					if (rc.readBroadcast(TARGET_X_COORD) == 0) {
-						reportEnemyArchons(enemies);
+						reportEnemyArchonsAndGardeners(enemies);
+					}
+					targetLoc = chooseRobotTarget(enemies);
+				}
+				
+				// move towards enemy
+				if (enemies.length > 0 && targetLoc != null) {
+					RobotInfo b = null;
+					if (rc.canSenseLocation(targetLoc)) {
+						b = rc.senseRobotAtLocation(targetLoc);
+					}
+					if(!rc.hasMoved() && b != null){
+						MapLocation shifty = stayShifty(b);
+						if(shifty != null){
+							moveToLoc(shifty);
+						}
 					}
 				}
 				if (!rc.hasMoved()) {
 					bounceDirection = bounce(bounceDirection);
 				}
+				
+				if (targetLoc != null) {
+					attack(targetLoc);
+				}
+				
 				// Clock.yield() makes the robot wait until the next turn, then it will perform this loop again
 				Clock.yield();
 			}catch(Exception e){
@@ -1018,7 +1060,7 @@ public strictfp class RobotPlayer {
 
 	}
 
-	static void reportEnemyArchons(RobotInfo[] enemies) throws GameActionException {
+	static void reportEnemyArchonsAndGardeners(RobotInfo[] enemies) throws GameActionException {
 		int i = 0;
 		boolean found = false;
 		while (!found && i < enemies.length) {
@@ -1029,6 +1071,18 @@ public strictfp class RobotPlayer {
 				rc.broadcast(TARGET_Y_COORD, Math.round(robot.location.y));
 			}
 			i++;
+		}
+		if (!found) {
+			i = 0;
+			while (!found && i < enemies.length) {
+				RobotInfo robot = enemies[i];
+				if (robot.type.equals(RobotType.GARDENER)) {
+					found = true;
+					rc.broadcast(TARGET_X_COORD, Math.round(robot.location.x));
+					rc.broadcast(TARGET_Y_COORD, Math.round(robot.location.y));
+				}
+				i++;
+			}
 		}
 	}
 
@@ -1310,6 +1364,43 @@ public strictfp class RobotPlayer {
 		float perpendicularDist = (float)Math.abs(distToRobot * Math.sin(theta)); // soh cah toa :)
 
 		return (perpendicularDist <= rc.getType().bodyRadius);
+	}
+	
+	static MapLocation stayShifty(RobotInfo targetedEnemy) throws GameActionException{
+		MapLocation myLoc = rc.getLocation();
+
+		MapLocation enemyLoc = targetedEnemy.getLocation();
+		RobotType myRobotType = rc.getType();
+		RobotType myEnemyType = targetedEnemy.getType();
+		float myStrideRadius = myRobotType.strideRadius;
+		if(myRobotType.sensorRadius <= myEnemyType.sensorRadius){
+			return null;
+		} else if (myEnemyType.equals(RobotType.ARCHON) || myEnemyType.equals(RobotType.GARDENER)) {
+			return null;
+		} else {
+			Direction potentialDirection = myLoc.directionTo(enemyLoc);
+			MapLocation potentialLocation = myLoc.add(potentialDirection, myStrideRadius);
+			if(myLoc.distanceTo(enemyLoc) < myEnemyType.sensorRadius && rc.canMove(potentialLocation)){
+				return myLoc.add(potentialDirection.opposite(), myStrideRadius);
+			}else{
+				if(rc.canMove(potentialLocation)){
+					return potentialLocation;
+				}
+				else{
+					for(int i = 15; i <=90; i =15){
+						Direction left = potentialDirection.rotateLeftDegrees(i);
+						if(rc.canMove(left)){
+							return myLoc.add(left, myStrideRadius);
+						}
+						left = potentialDirection.rotateRightDegrees(i);
+						if(rc.canMove(left)){
+							return myLoc.add(left, myStrideRadius);
+						}
+					}
+					return null;
+				}
+			}
+		}
 	}
 }
 
