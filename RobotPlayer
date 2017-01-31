@@ -218,6 +218,16 @@ public strictfp class RobotPlayer {
 				oppDir = rc.getLocation().directionTo(robot.location).opposite();
 			}
 		}
+		int biomax = 50;
+		if (numArchs == 1){
+			int bioMax = 50;
+		}
+		if (numArchs == 2){
+			int bioMax = 80;
+		}
+		if (numArchs == 3){
+			int bioMax = 100;
+		}
 		while (true){
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
 			try {
@@ -234,12 +244,12 @@ public strictfp class RobotPlayer {
 				if (neutralTrees.length > 0) {
 					shakeTrees(neutralTrees);
 				}
-				if (rc.getHealth()<5 && !pinged){
+				if (rc.getHealth()<10 && !pinged){
 					rc.broadcast(GARDENER_DISTRESS_CHANNEL, rc.readBroadcast(GARDENER_DISTRESS_CHANNEL)+1);
 					pinged = true;
 					rc.broadcast(GARDENER_NUM_CHANNEL, rc.readBroadcast(GARDENER_NUM_CHANNEL)-1);
 				}
-				if (rc.readBroadcast(BIO_NUM_CHANNEL)>numArchs*50) {
+				if (rc.readBroadcast(BIO_NUM_CHANNEL)>bioMax) {
 					toProduce = false;
 				} else {
 					toProduce = true;
@@ -1300,7 +1310,7 @@ public strictfp class RobotPlayer {
 			int i = 0;
 			if (movingLeft){
 				i = 0;
-				while (i<180){
+				while (i<270){
 					i+=5;
 					if (rc.canMove(dir.rotateLeftDegrees(i)) && !rc.hasMoved()){
 						rc.move(dir.rotateLeftDegrees(i));
@@ -1308,7 +1318,7 @@ public strictfp class RobotPlayer {
 					}
 				}
 				i = 0;
-				while (i<180){
+				while (i<270){
 					i+=5;
 					if (rc.canMove(dir.rotateLeftDegrees(-i)) && !rc.hasMoved()){
 						rc.move(dir.rotateLeftDegrees(-i));
@@ -1317,7 +1327,7 @@ public strictfp class RobotPlayer {
 				}
 			}else{
 			i = 0;
-			while (i<180){
+			while (i<270){
 				i+=5;
 				if (rc.canMove(dir.rotateLeftDegrees(-i)) && !rc.hasMoved()){
 					rc.move(dir.rotateLeftDegrees(-i));
@@ -1325,7 +1335,7 @@ public strictfp class RobotPlayer {
 				}
 			}
 			i = 0;
-			while (i<180){
+			while (i<270){
 				i+=5;
 				if (rc.canMove(dir.rotateLeftDegrees(i)) && !rc.hasMoved()){
 					rc.move(dir.rotateLeftDegrees(i));
