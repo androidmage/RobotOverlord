@@ -9,6 +9,7 @@ public strictfp class RobotPlayer {
 	static RobotController rc;
 	static int GARDENER_DISTRESS_CHANNEL = 2;
 	static int GARDENER_PRODUCTION_CHANNEL = 1;
+	static int GARDENER_NUM_CHANNEL = 10;
 	static int ARCHON_DISTRESS_CHANNEL = 3;
 	static int ARCHON_NUM_CHANNEL = 4;
 	static int ARCHON_PRODUCTION_CHANNEL = 5;
@@ -16,6 +17,8 @@ public strictfp class RobotPlayer {
 	static int ARCHON_FUCK_CHANNEL = 7;
 	static int GARDENER_SCHEDULE_CHANNEL = 8;
 	static int GARDENER_AVAILABILITY_CHANNEL = 9;
+	static int SOLDIER_NUM_CHANNEL = 11;
+	static int LUMB_NUM_CHANNEL = 12;
 	static int TARGET_X_COORD = 20;
 	static int TARGET_Y_COORD = 21;
 	static Team ourTeam;
@@ -105,7 +108,7 @@ public strictfp class RobotPlayer {
 				}
 				// every 500 rounds produce a gardener unless surrounded
 				if (archonNum == 0 && rc.getRoundNum() % 50 == 0) {
-					if (rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL)+numberOfArchons < rc.getTeamBullets()/100&& !checkSurrounded()){
+					if (rc.readBroadcast(GARDENER_NUM_CHANNEL) < rc.getTeamBullets()/75&& !checkSurrounded()){
 						rc.broadcast(GARDENER_DISTRESS_CHANNEL, rc.readBroadcast(GARDENER_DISTRESS_CHANNEL) + 1);
 					}
 				}
@@ -130,6 +133,7 @@ public strictfp class RobotPlayer {
 					// figure out which archon will build gardener
 					if(Math.abs(deadGardeners) % (rc.readBroadcast(ARCHON_TOTAL_CHANNEL)) == archonNum) {
 						rc.hireGardener(dir);
+						rc.broadcast(GARDENER_NUM_CHANNEL, rc.readBroadcast(GARDENER_NUM_CHANNEL)+1);
 					}					
 				}
 				Direction randDir = randomDirection();
@@ -233,6 +237,7 @@ public strictfp class RobotPlayer {
 				if (rc.getHealth()<5 && !pinged){
 					rc.broadcast(GARDENER_DISTRESS_CHANNEL, rc.readBroadcast(GARDENER_DISTRESS_CHANNEL)+1);
 					pinged = true;
+					rc.broadcast(GARDENER_NUM_CHANNEL, rc.readBroadcast(GARDENER_NUM_CHANNEL)-1);
 				}
 				if (rc.readBroadcast(GARDENER_DISTRESS_CHANNEL) != rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL)) {
 					toProduce = false;
@@ -441,6 +446,7 @@ public strictfp class RobotPlayer {
 		System.out.println("I'm a soldier!");
 		MapLocation targetLoc2 = rc.getInitialArchonLocations(opponentTeam)[0];
 		Direction targetDir2 = rc.getLocation().directionTo(targetLoc2);
+		int spawnRound = rc.getRoundNum();
 		// The code you want your robot to perform every round should be in this loop
 		while (true) {
 
@@ -452,7 +458,16 @@ public strictfp class RobotPlayer {
 				int xCoord = rc.readBroadcast(TARGET_X_COORD);
 				int yCoord = rc.readBroadcast(TARGET_Y_COORD);
 				MapLocation targetLoc = new MapLocation(xCoord, yCoord);
-
+				RobotInfo[] initialRobots = rc.senseNearbyRobots(2, ourTeam);
+				Direction oppDir = randomDirection();
+				for(RobotInfo robot : initialRobots) {
+					if(robot.type.equals(RobotType.GARDENER)) {
+						oppDir = rc.getLocation().directionTo(robot.location).opposite();
+					}
+				}
+				if(rc.getRoundNum() < spawnRound + 5) {
+					tryMove(oppDir);
+				}
 				//sense enemy robots and trees
 				Direction targetDir = null;
 				RobotInfo[] enemies = rc.senseNearbyRobots(myType.sensorRadius, opponentTeam);
@@ -766,6 +781,7 @@ public strictfp class RobotPlayer {
 
 	static void runLumberjack() throws GameActionException {
 		System.out.println("I'm a lumberjack!");
+		int spawnRound = rc.getRoundNum();
 		// The code you want your robot to perform every round should be in this loop
 		while (true) {
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
@@ -779,6 +795,16 @@ public strictfp class RobotPlayer {
 				RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().sensorRadius, opponentTeam);
 				TreeInfo[] enemyTrees = rc.senseNearbyTrees(rc.getType().sensorRadius, opponentTeam);
 				TreeInfo[] neutralTrees = rc.senseNearbyTrees(rc.getType().sensorRadius, Team.NEUTRAL);
+				RobotInfo[] initialRobots = rc.senseNearbyRobots(2, ourTeam);
+				Direction oppDir = randomDirection();
+				for(RobotInfo robot : initialRobots) {
+					if(robot.type.equals(RobotType.GARDENER)) {
+						oppDir = rc.getLocation().directionTo(robot.location).opposite();
+					}
+				}
+				if(rc.getRoundNum() < spawnRound + 5) {
+					tryMove(oppDir);
+				}
 				// if target eliminated, broadcast : else, set targetDir
 				if (xCoord != 0) {
 					boolean eliminated = checkTarget(targetLoc, targetDir, enemies);
