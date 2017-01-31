@@ -199,7 +199,7 @@ public strictfp class RobotPlayer {
 	}
 
 
-		static void runGardener() throws GameActionException {
+	static void runGardener() throws GameActionException {
 		boolean toProduce = false;
 		boolean pinged = false;
 		int buildCount = 0;
@@ -264,24 +264,24 @@ public strictfp class RobotPlayer {
 				RobotType potentialRobot = null;
 				int scheduleNum = rc.readBroadcast(GARDENER_SCHEDULE_CHANNEL) % 6;
 				if (rc.getRoundNum()>400){
-				if (scheduleNum == 0){
-					potentialRobot = RobotType.SCOUT;
-				}
-				if (scheduleNum == 1){
-					potentialRobot = RobotType.LUMBERJACK;
-				}
-				if (scheduleNum == 2){
-					potentialRobot = RobotType.LUMBERJACK;
-				}
-				if (scheduleNum == 3){
-					potentialRobot = RobotType.SOLDIER;
-				}
-				if (scheduleNum == 4){
-					potentialRobot = RobotType.SOLDIER;
-				}
-				if (scheduleNum == 5){
-					potentialRobot = RobotType.SOLDIER;
-				}
+					if (scheduleNum == 0){
+						potentialRobot = RobotType.SCOUT;
+					}
+					if (scheduleNum == 1){
+						potentialRobot = RobotType.LUMBERJACK;
+					}
+					if (scheduleNum == 2){
+						potentialRobot = RobotType.LUMBERJACK;
+					}
+					if (scheduleNum == 3){
+						potentialRobot = RobotType.SOLDIER;
+					}
+					if (scheduleNum == 4){
+						potentialRobot = RobotType.SOLDIER;
+					}
+					if (scheduleNum == 5){
+						potentialRobot = RobotType.SOLDIER;
+					}
 				}else if(scheduleNum == 0){
 					potentialRobot = RobotType.SCOUT;
 				}else if(scheduleNum>0){
@@ -497,7 +497,7 @@ public strictfp class RobotPlayer {
 				if (rc.readBroadcast(TARGET_X_COORD) == 0) {
 					reportEnemyArchonsAndGardeners(enemies);
 				}
-				
+
 				// if target eliminated, broadcast : else, set targetDir
 				if (xCoord != 0) {
 					boolean eliminated = checkTarget(targetLoc, targetDir, enemies);
@@ -902,7 +902,7 @@ public strictfp class RobotPlayer {
 				if(rc.getRoundNum() < spawnRound + 5) {
 					tryMove(oppDir);
 				}
-				
+
 				// broadcast enemy archons and gardeners
 				if (rc.readBroadcast(TARGET_X_COORD) == 0) {
 					reportEnemyArchonsAndGardeners(enemies);
@@ -916,6 +916,25 @@ public strictfp class RobotPlayer {
 						rc.broadcast(TARGET_Y_COORD, 0);
 					} else {
 						targetDir = rc.getLocation().directionTo(targetLoc);
+					}
+				}
+				RobotInfo[] nearbyBots = rc.senseNearbyRobots(2);
+				if(nearbyBots.length > 0){
+					MapLocation myLoc = rc.getLocation();
+					int numOfEnemies = 0;
+					int numOfFriends = 0;
+					for(int i = 0; i < nearbyBots.length; i++){
+						if(nearbyBots[i].getTeam().equals(ourTeam)){
+							numOfFriends++;
+						}
+						else if(nearbyBots[i].getTeam().equals(opponentTeam)) {
+							numOfEnemies++;
+						}
+					}
+					//ratio of friends to enemies 
+					if(numOfFriends < numOfEnemies){
+						rc.strike();
+						System.out.println("strike");
 					}
 				}
 				MapLocation nearbyTargetLoc = chooseTarget(enemies, enemyTrees);
@@ -934,24 +953,7 @@ public strictfp class RobotPlayer {
 						moveToLoc(targetLoc,movingLeft);
 					}
 				}
-				if(rc.senseNearbyRobots().length > 0){
-					RobotInfo[] nearbyBots = rc.senseNearbyRobots();
-					MapLocation location = rc.getLocation();
-					int numOfEnemies = 0;
-					int numOfFriends = 0;
-					for(int i = 0; i < nearbyBots.length; i++){
-						if(nearbyBots[i].getTeam().equals(rc.getTeam()) && location.isWithinDistance(nearbyBots[i].getLocation(), 2)){
-							numOfFriends++;
-						}
-						else if(nearbyBots[i].getTeam().equals(rc.getTeam().opponent()) && location.isWithinDistance(nearbyBots[i].getLocation(), 2)){
-							numOfEnemies++;
-						}
-					}
-					//ratio of friends to enemies 
-					if(((double)numOfFriends)/numOfEnemies < 1){
-						rc.strike();
-					}
-				}
+
 				if (neutralTrees.length > 0) {
 					TreeInfo closestTree = neutralTrees[0];
 					float distance = closestTree.location.distanceTo(rc.getLocation());
