@@ -82,6 +82,11 @@ public strictfp class RobotPlayer {
 		while (true) {
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
 			try {
+				if (archonNum == 0) {
+					System.out.println("NUM: " + rc.readBroadcast(GARDENER_NUM_CHANNEL));
+					System.out.println("PRODUCTION: " + rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL));
+					System.out.println("DISTRESS: " + rc.readBroadcast(GARDENER_DISTRESS_CHANNEL));
+				}
 				donateBullets();
 				if (rc.isBuildReady()){
 					/*if (rc.getTeamBullets()/500 > rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL)+3){
@@ -106,9 +111,9 @@ public strictfp class RobotPlayer {
 						rc.broadcast(ARCHON_FUCK_CHANNEL, 0);
 					}
 				}
-				// every 500 rounds produce a gardener unless surrounded
-				if (archonNum == 0 && rc.getRoundNum() % 50 == 0) {
-					if (rc.readBroadcast(GARDENER_NUM_CHANNEL) < rc.getTeamBullets()/75&& !checkSurrounded()){
+				// every 50 rounds produce a gardener unless surrounded
+				if (archonNum == 0 && rc.getRoundNum() % 50 < 4) {
+					if (rc.readBroadcast(GARDENER_NUM_CHANNEL) < (rc.getTeamBullets() / 75) && !checkSurrounded()){
 						rc.broadcast(GARDENER_DISTRESS_CHANNEL, rc.readBroadcast(GARDENER_DISTRESS_CHANNEL) + 1);
 					}
 				}
@@ -134,7 +139,7 @@ public strictfp class RobotPlayer {
 					if(Math.abs(deadGardeners) % (rc.readBroadcast(ARCHON_TOTAL_CHANNEL)) == archonNum) {
 						rc.hireGardener(dir);
 						rc.broadcast(GARDENER_NUM_CHANNEL, rc.readBroadcast(GARDENER_NUM_CHANNEL)+1);
-					}					
+					}
 				}
 				Direction randDir = randomDirection();
 				if (rc.canMove(randDir)){
@@ -224,7 +229,7 @@ public strictfp class RobotPlayer {
 				// Generate a random direction
 				Direction dir = randomDirection();
 				buildCount++;
-				if(rc.getRoundNum() < spawnRound + 10) {
+				if(rc.getRoundNum() < spawnRound + 8 + (rc.readBroadcast(GARDENER_NUM_CHANNEL) * 2)) {
 					tryMove(oppDir);
 				} else {
 					// moves for us and builds trees
@@ -240,7 +245,7 @@ public strictfp class RobotPlayer {
 					rc.broadcast(GARDENER_NUM_CHANNEL, rc.readBroadcast(GARDENER_NUM_CHANNEL)-1);
 				}
 				if (rc.readBroadcast(GARDENER_DISTRESS_CHANNEL) != rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL)) {
-					toProduce = false;
+					toProduce = true;
 				} else {
 					toProduce = true;
 				}
