@@ -61,7 +61,43 @@ public strictfp class RobotPlayer {
 		}
 	}
 
-
+	//method to determine which way to move to avoid 
+	static MapLocation stayShifty(RobotInfo targetedEnemy) throws GameActionException{
+		MapLocation myLoc = rc.getLocation();
+		
+		MapLocation enemyLoc = targetedEnemy.getLocation();
+		RobotType myRobotType = rc.getType();
+		RobotType myEnemyType = targetedEnemy.getType();
+		float myStrideRadius = myRobotType.strideRadius;
+		if(myRobotType.sensorRadius < myEnemyType.sensorRadius){
+			return null;
+		}
+		else{
+			Direction potentialDirection = myLoc.directionTo(enemyLoc);
+			MapLocation potentialLocation = myLoc.add(potentialDirection, myStrideRadius);
+			if(myLoc.distanceTo(enemyLoc) < myEnemyType.sensorRadius && rc.canMove(potentialLocation)){
+				return myLoc.add(potentialDirection.opposite(), myStrideRadius);
+			}else{
+				if(rc.canMove(potentialLocation)){
+					return potentialLocation;
+				}
+				else{
+					for(int i = 15; i <=90; i+=15){
+						Direction left = potentialDirection.rotateLeftDegrees(i);
+						if(rc.canMove(left)){
+							return myLoc.add(left, myStrideRadius);
+						}
+						left = potentialDirection.rotateRightDegrees(i);
+						if(rc.canMove(left)){
+							return myLoc.add(left, myStrideRadius);
+						}
+					}
+					return null;
+				}
+			}
+		}
+	}
+	
 	static void runArchon() throws GameActionException {
 		MapLocation[] initialArchonLoc = rc.getInitialArchonLocations(rc.getTeam());
 		int numberOfArchons = initialArchonLoc.length;
