@@ -81,7 +81,6 @@ public strictfp class RobotPlayer {
 		while (true) {
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
 			try {
-				System.out.println(rc.readBroadcast(BIO_NUM_CHANNEL));
 				donateBullets();
 				if (rc.isBuildReady()){
 					/*if (rc.getTeamBullets()/500 > rc.readBroadcast(GARDENER_PRODUCTION_CHANNEL)+3){
@@ -106,7 +105,10 @@ public strictfp class RobotPlayer {
 						rc.broadcast(ARCHON_FUCK_CHANNEL, 0);
 					}
 				}
-				// every 500 rounds produce a gardener unless surrounded
+				// every 300 rounds produce a gardener unless surrounded
+				if (archonNum == 0 && rc.getRoundNum()<1100 &&rc.getRoundNum()%300 == 100){
+					rc.broadcast(GARDENER_DISTRESS_CHANNEL, rc.readBroadcast(GARDENER_DISTRESS_CHANNEL) + 1);
+				}
 				if (archonNum == 0 && rc.getRoundNum() % 50 == 0) {
 					if (rc.readBroadcast(GARDENER_NUM_CHANNEL) < rc.getTeamBullets()/75&& !checkSurrounded()){
 						rc.broadcast(GARDENER_DISTRESS_CHANNEL, rc.readBroadcast(GARDENER_DISTRESS_CHANNEL) + 1);
@@ -182,7 +184,7 @@ public strictfp class RobotPlayer {
 	static void donateBullets() throws GameActionException {
 		float cost = (float) (7.5 + rc.getRoundNum() * 12.5 / 3000);
 		float bullets = rc.getTeamBullets();
-		float surplus = bullets - 1000 + rc.getRoundNum() / cost;
+		float surplus = bullets - 500 + rc.getRoundNum() / cost;
 		if(surplus > 0) {
 			rc.donate(surplus - (surplus % cost));
 		}
@@ -198,8 +200,6 @@ public strictfp class RobotPlayer {
 
 
 	static void runGardener() throws GameActionException {
-		donateBullets();
-		System.out.println("I'm a gardener!");
 		boolean toProduce = false;
 		boolean pinged = false;
 		int buildCount = 0;
@@ -218,19 +218,20 @@ public strictfp class RobotPlayer {
 				oppDir = rc.getLocation().directionTo(robot.location).opposite();
 			}
 		}
-		int biomax = 50;
+		int bioMax = 50;
 		if (numArchs == 1){
-			int bioMax = 50;
+			bioMax = 50;
 		}
 		if (numArchs == 2){
-			int bioMax = 80;
+			bioMax = 80;
 		}
 		if (numArchs == 3){
-			int bioMax = 100;
+			bioMax = 100;
 		}
 		while (true){
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
 			try {
+				donateBullets();
 				// Generate a random direction
 				Direction dir = randomDirection();
 				buildCount++;
@@ -463,7 +464,6 @@ public strictfp class RobotPlayer {
 				MapLocation targetLoc = new MapLocation(xCoord, yCoord);
 				if (!pinged && rc.getHealth()<10){
 					rc.broadcast(BIO_NUM_CHANNEL, rc.readBroadcast(BIO_NUM_CHANNEL)-1);
-					System.out.println("Sold Dec");
 					pinged = true;
 				}
 				RobotInfo[] initialRobots = rc.senseNearbyRobots(2, ourTeam);
@@ -488,7 +488,6 @@ public strictfp class RobotPlayer {
 					if (eliminated) {
 						rc.broadcast(TARGET_X_COORD, 0);
 						rc.broadcast(TARGET_Y_COORD, 0);
-						System.out.println("reset target");
 					} else {
 						targetDir = myLoc.directionTo(targetLoc);
 					}
@@ -805,7 +804,6 @@ public strictfp class RobotPlayer {
 	}
 
 	static void runLumberjack() throws GameActionException {
-		System.out.println("I'm a lumberjack!");
 		int spawnRound = rc.getRoundNum();
 		boolean pinged = false;
 		boolean movingLeft = false;
@@ -824,7 +822,6 @@ public strictfp class RobotPlayer {
 				TreeInfo[] neutralTrees = rc.senseNearbyTrees(rc.getType().sensorRadius, Team.NEUTRAL);
 				if (!pinged &&rc.getHealth()<10){
 					rc.broadcast(BIO_NUM_CHANNEL, rc.readBroadcast(BIO_NUM_CHANNEL)-1);
-					System.out.println("LJ Dec");
 					pinged = true;
 				}
 				RobotInfo[] initialRobots = rc.senseNearbyRobots(2, ourTeam);
@@ -844,7 +841,6 @@ public strictfp class RobotPlayer {
 					if (eliminated) {
 						rc.broadcast(TARGET_X_COORD, 0);
 						rc.broadcast(TARGET_Y_COORD, 0);
-						System.out.println("reset target");
 					} else {
 						targetDir = rc.getLocation().directionTo(targetLoc);
 					}
@@ -902,7 +898,7 @@ public strictfp class RobotPlayer {
 					} else if(!rc.hasMoved() && rc.canMove(rc.getLocation().directionTo(closestTree.location))){
 						rc.move(rc.getLocation().directionTo(closestTree.location));
 					}
-				} else 
+				}
 					if(!rc.hasMoved()) {
 						tryMove(randomDirection());
 					}
@@ -916,7 +912,6 @@ public strictfp class RobotPlayer {
 	}
 
 	static void runTank() throws GameActionException {
-		System.out.println("I'm a Tank!");
 		//choose location here so it doesnt change every round
 		MapLocation myLocation = rc.getLocation();
 		MapLocation[] initialArchons = rc.getInitialArchonLocations(opponentTeam);
@@ -941,7 +936,6 @@ public strictfp class RobotPlayer {
 					if (eliminated) {
 						rc.broadcast(TARGET_X_COORD, 0);
 						rc.broadcast(TARGET_Y_COORD, 0);
-						System.out.println("reset target");
 					} else {
 						targetDir = rc.getLocation().directionTo(targetLoc);
 					}
@@ -1011,8 +1005,6 @@ public strictfp class RobotPlayer {
 	}	
 
 	static void runScout() throws GameActionException {
-		System.out.println("I'm a Scout!");
-
 		RobotInfo[] initialRobots = rc.senseNearbyRobots(2, ourTeam);
 		Direction bounceDirection = randomDirection();
 		for(int i = 0; i < initialRobots.length; i++) {
