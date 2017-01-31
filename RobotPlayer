@@ -76,7 +76,7 @@ public strictfp class RobotPlayer {
 				archonNum = i;
 			}
 		}
-		rc.broadcast(GARDENER_PRODUCTION_CHANNEL, -1 * numberOfArchons);
+		rc.broadcast(GARDENER_PRODUCTION_CHANNEL, (-1 * numberOfArchons)-1);
 		// The code you want your robot to perform every round should be in this loop
 		while (true) {
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
@@ -106,10 +106,11 @@ public strictfp class RobotPlayer {
 					}
 				}
 				// every 300 rounds produce a gardener unless surrounded
-				if (archonNum == 0 && rc.getRoundNum()<1100 &&rc.getRoundNum()%300 == 100){
+				if (archonNum == 0 && rc.getRoundNum()<1100 && rc.getRoundNum()%300 == 100){
 					rc.broadcast(GARDENER_DISTRESS_CHANNEL, rc.readBroadcast(GARDENER_DISTRESS_CHANNEL) + 1);
 				}
-				if (archonNum == 0 && rc.getRoundNum() % 50 == 0) {
+				if (archonNum == 0 && rc.getRoundNum() % 50 < 3) {
+					System.out.println(rc.getRoundNum());
 					if (rc.readBroadcast(GARDENER_NUM_CHANNEL) < rc.getTeamBullets()/75&& !checkSurrounded()){
 						rc.broadcast(GARDENER_DISTRESS_CHANNEL, rc.readBroadcast(GARDENER_DISTRESS_CHANNEL) + 1);
 					}
@@ -232,6 +233,9 @@ public strictfp class RobotPlayer {
 		while (true){
 			// Try/catch blocks stop unhandled exceptions, which cause your robot to explode
 			try {
+				if (rc.getRoundNum() > 200) {
+					hasBuiltLumb = true;
+				}
 				donateBullets();
 				// Generate a random direction
 				Direction dir = randomDirection();
@@ -240,11 +244,12 @@ public strictfp class RobotPlayer {
 					tryMove(oppDir);
 				} else if(!hasBuiltLumb){
 					Direction LumbDir = findOpenDirection(RobotType.LUMBERJACK);
-					if (rc.canBuildRobot(RobotType.LUMBERJACK, LumbDir)){
+					if (LumbDir != null && rc.canBuildRobot(RobotType.LUMBERJACK, LumbDir)){
 						rc.buildRobot(RobotType.LUMBERJACK, LumbDir);
 						hasBuiltLumb = true;
 					}
-				}else{
+				}
+				if (!rc.hasMoved() && hasBuiltLumb) {
 					GardenersMove(id);
 				}
 				TreeInfo[] neutralTrees = rc.senseNearbyTrees(rc.getType().sensorRadius, Team.NEUTRAL);
@@ -263,7 +268,7 @@ public strictfp class RobotPlayer {
 				}
 				RobotType potentialRobot = null;
 				int scheduleNum = rc.readBroadcast(GARDENER_SCHEDULE_CHANNEL) % 6;
-				if (rc.getRoundNum()>400){
+				if (rc.getRoundNum()>200){
 					if (scheduleNum == 0){
 						potentialRobot = RobotType.SCOUT;
 					}
@@ -456,7 +461,6 @@ public strictfp class RobotPlayer {
 
 
 	static void runSoldier() throws GameActionException {
-		System.out.println("I'm a soldier!");
 		MapLocation targetLoc2 = rc.getInitialArchonLocations(opponentTeam)[0];
 		Direction targetDir2 = rc.getLocation().directionTo(targetLoc2);
 		int spawnRound = rc.getRoundNum();
@@ -604,7 +608,7 @@ public strictfp class RobotPlayer {
 					}
 				}
 				Direction moveTo = myLoc.directionTo(bulleted.get(closest).getLocation());
-				if(rc.canMove(moveTo) && !rc.hasMoved() && rc.getType() != RobotType.GARDENER){
+				if(moveTo != null && rc.canMove(moveTo) && !rc.hasMoved() && rc.getType() != RobotType.GARDENER){
 					rc.move(moveTo);
 				}
 			}
@@ -934,7 +938,6 @@ public strictfp class RobotPlayer {
 					//ratio of friends to enemies 
 					if(numOfFriends < numOfEnemies){
 						rc.strike();
-						System.out.println("strike");
 					}
 				}
 				MapLocation nearbyTargetLoc = chooseTarget(enemies, enemyTrees);
@@ -990,19 +993,42 @@ public strictfp class RobotPlayer {
 		MapLocation myLocation = rc.getLocation();
 		MapLocation[] initialArchons = rc.getInitialArchonLocations(opponentTeam);
 		Direction attack = myLocation.directionTo(initialArchons[(int)Math.random()*initialArchons.length]);
+		int spawnRound = rc.getRoundNum();
+		boolean pinged = false;
 		boolean movingLeft = false;
 		// The code you want your robot to perform every round should be in this loop
 		while (true) {
 			try{
+				MapLocation myLoc = rc.getLocation();
+				RobotType myType =  rc.getType();
 				// get target location and direction
 				int xCoord = rc.readBroadcast(TARGET_X_COORD);
 				int yCoord = rc.readBroadcast(TARGET_Y_COORD);
 				MapLocation targetLoc = new MapLocation(xCoord, yCoord);
+				if (!pinged && rc.getHealth()<10){
+					rc.broadcast(BIO_NUM_CHANNEL, rc.readBroadcast(BIO_NUM_CHANNEL)-1);
+					pinged = true;
+				}
+				RobotInfo[] initialRobots = rc.senseNearbyRobots(2, ourTeam);
+				Direction oppDir = randomDirection();
+				for(RobotInfo robot : initialRobots) {
+					if(robot.type.equals(RobotType.GARDENER)) {
+						oppDir = rc.getLocation().directionTo(robot.location).opposite();
+					}
+				}
+				if(rc.getRoundNum() < spawnRound + 5) {
+					tryMove(oppDir);
+				}
 
 				//sense enemy robots and trees
 				Direction targetDir = null;
-				RobotInfo[] enemies = rc.senseNearbyRobots(rc.getType().sensorRadius, opponentTeam);
-				TreeInfo[] trees = rc.senseNearbyTrees(rc.getType().sensorRadius, opponentTeam);
+				RobotInfo[] enemies = rc.senseNearbyRobots(myType.sensorRadius, opponentTeam);
+				TreeInfo[] trees = rc.senseNearbyTrees(myType.sensorRadius, opponentTeam);
+
+				// broadcast enemy archons and gardeners
+				if (rc.readBroadcast(TARGET_X_COORD) == 0) {
+					reportEnemyArchonsAndGardeners(enemies);
+				}
 
 				// if target eliminated, broadcast : else, set targetDir
 				if (xCoord != 0) {
@@ -1011,7 +1037,7 @@ public strictfp class RobotPlayer {
 						rc.broadcast(TARGET_X_COORD, 0);
 						rc.broadcast(TARGET_Y_COORD, 0);
 					} else {
-						targetDir = rc.getLocation().directionTo(targetLoc);
+						targetDir = myLoc.directionTo(targetLoc);
 					}
 				}
 
@@ -1020,10 +1046,22 @@ public strictfp class RobotPlayer {
 
 				// if no target, choose a nearby enemy
 				if (nearbyTargetLoc != null) {
-					nearbyTargetDir = rc.getLocation().directionTo(nearbyTargetLoc);
+					nearbyTargetDir = myLoc.directionTo(nearbyTargetLoc);
 				}
 
 				// move towards enemy
+				if (nearbyTargetLoc != null) {
+					RobotInfo b = null;
+					if (rc.canSenseLocation(nearbyTargetLoc)) {
+						b = rc.senseRobotAtLocation(nearbyTargetLoc);
+					}
+					if(!rc.hasMoved() && b != null){
+						MapLocation shifty = stayShifty(b);
+						if(shifty != null){
+							moveToLoc(shifty, movingLeft);
+						}
+					}
+				}
 				if (nearbyTargetDir != null) {
 					if(!rc.hasMoved()) {
 						moveToLoc(nearbyTargetLoc, movingLeft);
