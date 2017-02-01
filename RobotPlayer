@@ -1177,6 +1177,22 @@ public strictfp class RobotPlayer {
 		}
 
 	}
+	
+	static void runAway() throws GameActionException {
+		//specific for scouts
+		//just stay more than seven units away from other robots
+		RobotInfo[] enemies = rc.senseNearbyRobots(RobotType.SCOUT.sensorRadius, opponentTeam);
+		int closestRobot = 0;
+		for(int i = 0; i < enemies.length; i++){
+			if(rc.getLocation().distanceTo(enemies[i].getLocation()) < closestRobot ){
+				closestRobot = i;
+			}	
+		}
+		if (rc.getLocation().distanceTo(enemies[closestRobot].getLocation()) < 7){
+			MapLocation newLoc = enemies[closestRobot].getLocation().translate((float)Math.sqrt(7), (float)Math.sqrt(7));
+			rc.move(newLoc);
+		}	
+	}
 
 	static void reportEnemyArchonsAndGardeners(RobotInfo[] enemies) throws GameActionException {
 		int i = 0;
